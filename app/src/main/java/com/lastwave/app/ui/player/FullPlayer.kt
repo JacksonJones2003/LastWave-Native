@@ -1181,7 +1181,8 @@ internal fun FullPlayer(
                         .fillMaxWidth(0.5f)
                         .fillMaxHeight()
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
-                        .padding(start = 8.dp, end = 16.dp, top = 8.dp),
+                        // Starts level with the cover, below the player's 52dp header and its 6dp gap.
+                        .padding(start = 8.dp, end = 16.dp, top = 58.dp),
                 )
             }
             Column(

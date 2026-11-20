@@ -32,13 +32,14 @@ class PlayerSplitTest {
     }
 
     @Test
-    fun dockedPlayerFillsTheEndColumn() {
-        assertEquals(Rect(780f, 0f, 1500f, 1660f), density.sidePaneRect(window, 360.dp, LayoutDirection.Ltr))
+    fun dockedPlayerIsACardBelowTheStatusBar() {
+        // 6dp margins = 12px; a 50px status bar.
+        assertEquals(Rect(792f, 62f, 1488f, 1660f), density.sidePaneRect(window, 360.dp, 50f, LayoutDirection.Ltr))
     }
 
     @Test
     fun rightToLeftDocksOnTheLeft() {
-        assertEquals(Rect(0f, 0f, 720f, 1660f), density.sidePaneRect(window, 360.dp, LayoutDirection.Rtl))
+        assertEquals(Rect(12f, 62f, 708f, 1660f), density.sidePaneRect(window, 360.dp, 50f, LayoutDirection.Rtl))
     }
 
     private val density = Density(2f)

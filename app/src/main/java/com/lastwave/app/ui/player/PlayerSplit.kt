@@ -38,16 +38,19 @@ internal class PlayerSplit private constructor(val sideWidth: Dp, windowWidthDp:
     }
 }
 
-/** Rounds the docked player's corners where they meet the app. */
-internal val SidePaneCorner = 20.dp
+/** Docked, the app and the player are rounded cards: [SidePaneMargin] from the window edges, twice it apart. */
+internal val SidePaneMargin = 6.dp
+internal val SidePaneCorner = 24.dp
 
-/** The docked player in [size]: the whole end column, top to bottom. */
-internal fun Density.sidePaneRect(size: Size, sideWidth: Dp, direction: LayoutDirection): Rect {
+/** The docked player in [size]: the end column below the status bar ([topInset] px), down past the bottom edge. */
+internal fun Density.sidePaneRect(size: Size, sideWidth: Dp, topInset: Float, direction: LayoutDirection): Rect {
+    val margin = SidePaneMargin.toPx()
     val width = sideWidth.toPx()
+    val top = topInset + margin
     return if (direction == LayoutDirection.Ltr) {
-        Rect(size.width - width, 0f, size.width, size.height)
+        Rect(size.width - width + margin, top, size.width - margin, size.height)
     } else {
-        Rect(0f, 0f, width, size.height)
+        Rect(margin, top, width - margin, size.height)
     }
 }
 
@@ -61,10 +64,10 @@ internal fun Modifier.appColumn(sideWidth: Dp, docked: () -> Float): Modifier =
     }
 
 /** Lays the player out in the end column; its host layer stays window-sized for the open/close morph. */
-internal fun Modifier.sidePaneBounds(sideWidth: Dp): Modifier =
+internal fun Modifier.sidePaneBounds(sideWidth: Dp, topInset: Density.() -> Float): Modifier =
     layout { measurable, constraints ->
         val window = Size(constraints.maxWidth.toFloat(), constraints.maxHeight.toFloat())
-        val card = sidePaneRect(window, sideWidth, layoutDirection)
+        val card = sidePaneRect(window, sideWidth, topInset(), layoutDirection)
         val placeable = measurable.measure(
             Constraints.fixed(card.width.roundToInt(), card.height.roundToInt()),
         )

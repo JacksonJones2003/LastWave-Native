@@ -51,6 +51,8 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.util.lerp
 import com.lastwave.app.ui.common.WindowPane
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.statusBars
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.layout.defaultMinSize
@@ -584,7 +586,10 @@ fun PlayerHost(
         LocalLiquidGlassBackdrop provides (if (miniGlass) miniBackdrop else null),
     ) {
         val layoutDirection = LocalLayoutDirection.current
-        val appBackground = MaterialTheme.colorScheme.background
+        // Docked, the app and the player are cards; the window between them is a shade off the page.
+        val gapColor = MaterialTheme.colorScheme.surfaceContainerHighest
+        // Read in layout and draw only, so status bar changes never recompose the host.
+        val statusBars = WindowInsets.statusBars
         Box(
             Modifier
                 .fillMaxSize()
@@ -594,10 +599,7 @@ fun PlayerHost(
                         Modifier
                     } else {
                         Modifier.drawBehind {
-                            // The window shows around the docked card; give it the app's background.
-                            val w = split.sideWidth.toPx()
-                            val x = if (layoutDirection == LayoutDirection.Ltr) size.width - w else 0f
-                            drawRect(appBackground, Offset(x, 0f), Size(w, size.height))
+                            drawRect(gapColor)
                         }
                     },
                 ),
@@ -606,7 +608,16 @@ fun PlayerHost(
                 Modifier
                     .fillMaxSize()
                     .then(
-                        if (split == null || !appDocked) Modifier else Modifier.appColumn(split.sideWidth) { 1f },
+                        if (split == null || !appDocked) {
+                            Modifier
+                        } else {
+                            // A rounded card below the status bar, clear of the window edge and the player.
+                            Modifier
+                                .appColumn(split.sideWidth) { 1f }
+                                .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
+                                .padding(start = SidePaneMargin, top = SidePaneMargin, end = SidePaneMargin)
+                                .clip(RoundedCornerShape(SidePaneCorner))
+                        },
                     )
                     .drawWithContent {
                         // Under the opaque full player the shell is invisible, but drawing it anyway
@@ -717,7 +728,7 @@ fun PlayerHost(
                             val p = playerExpansion.value.coerceIn(0f, 1f)
                             val f = paneFullscreen.value.coerceIn(0f, 1f)
                             val whole = Rect(0f, 0f, size.width, size.height)
-                            val docked = split?.let { sidePaneRect(size, it.sideWidth, layoutDirection) }
+                            val docked = split?.let { sidePaneRect(size, it.sideWidth, statusBars.getTop(this).toFloat(), layoutDirection) }
                             val target = if (docked == null) whole else lerp(docked, whole, f)
                             // Start rect = mini player card; fallback (button mode / no mini)
                             // = zero-height strip at the bottom, i.e. a reveal from below.
@@ -748,7 +759,10 @@ fun PlayerHost(
                                 if (dockedSplit == null) {
                                     Modifier.fillMaxSize()
                                 } else {
-                                    Modifier.sidePaneBounds(dockedSplit.sideWidth)
+                                    // Below the status bar: the player must not pad for it again.
+                                    Modifier
+                                        .sidePaneBounds(dockedSplit.sideWidth) { statusBars.getTop(this).toFloat() }
+                                        .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
                                 },
                             )
                             .graphicsLayer {
