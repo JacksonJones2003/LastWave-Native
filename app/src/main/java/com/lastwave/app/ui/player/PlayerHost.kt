@@ -614,6 +614,9 @@ fun PlayerHost(
                             // A rounded card below the status bar, clear of the player beside it.
                             Modifier
                                 .appColumn(split.sideWidth) { 1f }
+                                // Its end edge meets the player, not the screen: no end inset (a landscape
+                                // cutout or side nav bar) may pad the app there.
+                                .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
                                 .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
                                 .padding(top = SidePaneMargin, end = SidePaneMargin)
                                 .clip(RoundedCornerShape(SidePaneCorner))
@@ -683,7 +686,10 @@ fun PlayerHost(
                             if (split == null) {
                                 Modifier.align(Alignment.BottomCenter)
                             } else {
-                                Modifier.align(Alignment.BottomEnd).width(split.sideWidth)
+                                Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .width(split.sideWidth)
+                                    .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Start))
                             },
                         )
                         .zIndex(if (miniOnTop || chromeDocking) 1f else 0f)
@@ -766,7 +772,8 @@ fun PlayerHost(
                                     // Below the status bar: the player must not pad for it again.
                                     Modifier
                                         .sidePaneBounds(dockedSplit.sideWidth) { statusBars.getTop(this).toFloat() }
-                                        .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                                        // Nor the start edge, which meets the app.
+                                        .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Start))
                                 },
                             )
                             .graphicsLayer {
@@ -835,7 +842,15 @@ fun PlayerHost(
                             if (split == null) {
                                 Modifier
                             } else {
-                                Modifier.appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
+                                Modifier
+                                    .appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
+                                    .then(
+                                        if (miniPlayerShown || appDocked) {
+                                            Modifier.consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.End))
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
                             },
                         )
                         .graphicsLayer {
