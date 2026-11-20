@@ -53,6 +53,7 @@ import androidx.compose.ui.util.lerp
 import com.lastwave.app.ui.common.WindowPane
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.displayCutout
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.layout.defaultMinSize
@@ -594,6 +595,15 @@ fun PlayerHost(
             Modifier
                 .fillMaxSize()
                 .onGloballyPositioned { hostOrigin = it.boundsInRoot().topLeft }
+                // Unfolded, the small camera hole sits over content instead of padding a whole side
+                // in landscape (the status bar still clears it at the top).
+                .then(
+                    if (split == null) {
+                        Modifier
+                    } else {
+                        Modifier.consumeWindowInsets(WindowInsets.displayCutout.only(WindowInsetsSides.Horizontal))
+                    },
+                )
                 .then(
                     if (split == null || !appDocked) {
                         Modifier
