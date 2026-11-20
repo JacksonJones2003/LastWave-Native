@@ -611,11 +611,11 @@ fun PlayerHost(
                         if (split == null || !appDocked) {
                             Modifier
                         } else {
-                            // A rounded card below the status bar, clear of the window edge and the player.
+                            // A rounded card below the status bar, clear of the player beside it.
                             Modifier
                                 .appColumn(split.sideWidth) { 1f }
                                 .windowInsetsPadding(WindowInsets.statusBars.only(WindowInsetsSides.Top))
-                                .padding(start = SidePaneMargin, top = SidePaneMargin, end = SidePaneMargin)
+                                .padding(top = SidePaneMargin, end = SidePaneMargin)
                                 .clip(RoundedCornerShape(SidePaneCorner))
                         },
                     )
@@ -633,11 +633,15 @@ fun PlayerHost(
                 Box(Modifier.fillMaxSize().liquidGlassSource(if (miniGlass) miniBackdrop else null)) {
                     com.lastwave.app.ui.common.AmbientAnimationsGate(visible = { !contentCovered }) {
                         // The app lays out for its column while the player is docked.
-                        WindowPane(
-                            widthDp = split?.takeIf { appDocked }?.appWidthDp ?: window.screenWidthDp,
-                            heightDp = window.screenHeightDp,
-                            content = content,
-                        )
+                        CompositionLocalProvider(
+                            com.lastwave.app.ui.common.LocalPaneTopCorner provides if (appDocked) SidePaneCorner else 0.dp,
+                        ) {
+                            WindowPane(
+                                widthDp = split?.takeIf { appDocked }?.appWidthDp ?: window.screenWidthDp,
+                                heightDp = window.screenHeightDp,
+                                content = content,
+                            )
+                        }
                     }
                 }
             }

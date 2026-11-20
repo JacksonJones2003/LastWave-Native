@@ -1630,12 +1630,10 @@ fun FeedScreen(
             }
         }
 
-            // Glass header on top of the feed. On a wide window the YTM chip row rides in its
-            // title row; folded it is the opaque strip under the header (not part of the glass).
-            // The real window decides, not the app's column beside a docked player, so the chips
-            // don't jump rows when the player opens.
-            val chipsInHeader = androidx.compose.ui.platform.LocalContext.current
-                .resources.configuration.screenWidthDp >= 600
+            // Glass header on top of the feed. With the width of an unfolded screen the YTM chip
+            // row rides in its title row; narrower (folded, or beside a docked player) it is the
+            // opaque strip under the header (not part of the glass), where every chip shows.
+            val chipsInHeader = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
             val chips: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
                 PinnedChipsBar(
                     chips = state.homeChips,

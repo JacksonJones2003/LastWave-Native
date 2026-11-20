@@ -48,6 +48,13 @@ fun isExpandedScreen(): Boolean =
     LocalConfiguration.current.screenWidthDp >= 840
 
 /**
+ * Corner radius of the rounded card the screen is drawn in (the app beside a docked player),
+ * 0 when it fills the window. Top bars round their own top corners to match, so their
+ * edges follow the card instead of being cut off by it.
+ */
+val LocalPaneTopCorner = androidx.compose.runtime.compositionLocalOf { 0.dp }
+
+/**
  * Lays [content] out as a window of [widthDp] x [heightDp], for a pane sharing the real window
  * (the app beside a docked player). Breakpoints, orientation and the 360dp density fit then
  * follow the pane: a tablet layout squeezed into half a foldable overflowed its fixed-size boxes.

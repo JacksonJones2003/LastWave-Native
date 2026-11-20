@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +48,6 @@ import com.lastwave.app.ui.theme.liquidGlassSource
 import com.lastwave.app.ui.theme.rememberLayerBackdrop
 
 /** Only the bottom corners are rounded (24dp) for smooth full-bleed top alignment. */
-private val HeaderShape = RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp)
 
 /**
  * Theme-tinted wash for the glass to blur when no content sits under the
@@ -87,6 +87,10 @@ fun ExpressiveHeader(
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val liquidGlass = LocalLiquidGlass.current
+    val topCorner = LocalPaneTopCorner.current
+    val HeaderShape = remember(topCorner) {
+        RoundedCornerShape(topStart = topCorner, topEnd = topCorner, bottomStart = 24.dp, bottomEnd = 24.dp)
+    }
     val isGlass = liquidGlass && isLiquidGlassBackdropSupported()
     val isDark = LocalIsDarkTheme.current
     val backgroundColor = MaterialTheme.colorScheme.background
