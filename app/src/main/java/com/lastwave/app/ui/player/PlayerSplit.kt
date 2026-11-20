@@ -39,7 +39,7 @@ internal class PlayerSplit private constructor(val sideWidth: Dp, windowWidthDp:
 }
 
 /** Docked, the app and the player are rounded cards: [SidePaneMargin] from the window edges, twice it apart. */
-internal val SidePaneMargin = 6.dp
+internal val SidePaneMargin = 3.dp
 internal val SidePaneCorner = 24.dp
 
 /** The docked player in [size]: the end column below the status bar ([topInset] px), down past the bottom edge. */
