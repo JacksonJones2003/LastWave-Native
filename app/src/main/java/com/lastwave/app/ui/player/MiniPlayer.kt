@@ -717,8 +717,9 @@ private fun NavRowMiniPlayer(
     val tint = rememberArtworkTint(track.artworkUrl)
     // Always a dark card, so the foreground is always the light overlay palette.
     val onTint = Color.White
+    // A pill like the nav bar beside it; the cover sits concentric inside its rounded end.
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = CircleShape,
         color = tint,
         contentColor = onTint,
         shadowElevation = 6.dp,
@@ -729,13 +730,13 @@ private fun NavRowMiniPlayer(
     ) {
         Box {
             Row(
-                Modifier.fillMaxSize().padding(start = 6.dp, end = 4.dp),
+                Modifier.fillMaxSize().padding(start = 6.dp, end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 PlayerArtwork(
                     track = track,
                     modifier = Modifier.padding(vertical = 6.dp).fillMaxHeight().aspectRatio(1f),
-                    corner = 8.dp,
+                    corner = height / 2 - 6.dp,
                 )
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(
@@ -774,7 +775,8 @@ private fun NavRowMiniPlayer(
                 progressState,
                 trackColor = onTint.copy(alpha = 0.2f),
                 barColor = onTint,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp).height(2.dp),
+                // Inset past the rounded ends so the line stays inside the pill.
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = height / 2, vertical = 3.dp).height(2.dp),
             )
         }
     }
