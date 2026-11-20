@@ -469,6 +469,7 @@ internal fun MiniPlayer(
                 onToggle = onToggle,
                 onNext = onNext,
                 interaction = barInteraction,
+                glass = if (isGlass) backdrop else null,
             )
         } else if (isGlass) {
             Surface(
@@ -712,20 +713,24 @@ private fun NavRowMiniPlayer(
     onToggle: () -> Unit,
     onNext: () -> Unit,
     interaction: MutableInteractionSource,
+    /** The nav bar's glass source; null draws a solid tinted card. */
+    glass: Backdrop?,
 ) {
     val track = state.current ?: return
     val tint = rememberArtworkTint(track.artworkUrl)
     // Always a dark card, so the foreground is always the light overlay palette.
     val onTint = Color.White
     // A pill like the nav bar beside it; the cover sits concentric inside its rounded end.
+    // On glass the artwork tint stays strong enough to lead, with the page refracting through.
     Surface(
         shape = CircleShape,
-        color = tint,
+        color = if (glass != null) tint.copy(alpha = 0.72f) else tint,
         contentColor = onTint,
-        shadowElevation = 6.dp,
+        shadowElevation = if (glass != null) 0.dp else 6.dp,
         modifier = Modifier
             .fillMaxWidth()
             .height(height)
+            .then(if (glass != null) Modifier.liquidGlass(glass, 0.5f, CircleShape) else Modifier)
             .clickable(interactionSource = interaction, indication = null, onClick = onExpand),
     ) {
         Box {
