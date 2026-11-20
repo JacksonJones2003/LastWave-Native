@@ -335,6 +335,33 @@ internal fun QueuePanel(
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
 ) {
+    // The rows take their colours from the playing song, like the player backdrop they sit on,
+    // instead of the app theme's pale surfaces.
+    val tint = rememberArtworkTint(state.current?.artworkUrl)
+    val scheme = MaterialTheme.colorScheme
+    val artworkScheme = remember(scheme, tint) {
+        scheme.copy(
+            primary = androidx.compose.ui.graphics.lerp(tint, Color.White, 0.65f),
+            primaryContainer = androidx.compose.ui.graphics.lerp(tint, Color.White, 0.28f),
+            onPrimaryContainer = Color.White,
+            surfaceContainerHighest = androidx.compose.ui.graphics.lerp(tint, Color.White, 0.08f),
+            surfaceContainerHigh = androidx.compose.ui.graphics.lerp(tint, Color.White, 0.16f),
+            onSurface = Color.White,
+            onSurfaceVariant = Color.White.copy(alpha = 0.72f),
+        )
+    }
+    MaterialTheme(colorScheme = artworkScheme) {
+        QueuePanelContent(state, player, bottomPadding, modifier)
+    }
+}
+
+@Composable
+private fun QueuePanelContent(
+    state: MusicPlayerState,
+    player: MusicPlayer,
+    bottomPadding: androidx.compose.ui.unit.Dp,
+    modifier: Modifier,
+) {
     val isQueueLocked = isQueueLockedState
     val listState = rememberLazyListState()
     val haptics = LocalHapticFeedback.current

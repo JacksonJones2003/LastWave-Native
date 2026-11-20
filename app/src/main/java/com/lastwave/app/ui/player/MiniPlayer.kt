@@ -789,7 +789,7 @@ private fun NavRowMiniPlayer(
 
 /** A dark colour from the artwork, the way the card behind white text needs it; neutral until loaded. */
 @Composable
-private fun rememberArtworkTint(url: String?): Color {
+internal fun rememberArtworkTint(url: String?): Color {
     val context = LocalContext.current
     var tint by remember(url) { mutableStateOf<Color?>(null) }
     LaunchedEffect(url) {
