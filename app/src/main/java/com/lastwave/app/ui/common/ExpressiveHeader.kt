@@ -82,6 +82,8 @@ fun ExpressiveHeader(
     /** Extra row drawn inside the same glass pane, under the title row
      *  (e.g. Home's chip strip), full width with no side padding. */
     bottomContent: (@Composable ColumnScope.() -> Unit)? = null,
+    /** Content in the title row between the title and [actions], taking the space left over. */
+    inlineContent: (@Composable RowScope.() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     val liquidGlass = LocalLiquidGlass.current
@@ -170,7 +172,7 @@ fun ExpressiveHeader(
                         Spacer(Modifier.width(12.dp))
                     }
 
-                    Column(Modifier.weight(1f)) {
+                    Column(if (inlineContent == null) Modifier.weight(1f) else Modifier) {
                         Text(
                             title,
                             style = MaterialTheme.typography.headlineMedium,
@@ -191,6 +193,13 @@ fun ExpressiveHeader(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                    }
+                    if (inlineContent != null) {
+                        Row(
+                            Modifier.weight(1f).padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            content = inlineContent,
+                        )
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {

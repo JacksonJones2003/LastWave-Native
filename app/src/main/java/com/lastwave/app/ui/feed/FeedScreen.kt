@@ -1630,19 +1630,27 @@ fun FeedScreen(
             }
         }
 
-            // Glass header on top of the feed, with the pinned YTM chip row
-            // under it in its original opaque style (not part of the glass).
-            val chipStripColor = MaterialTheme.colorScheme.background
-            Column(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .onSizeChanged { if (it.height != topBarHeightPx) topBarHeightPx = it.height },
-            ) {
+            // Glass header on top of the feed; the YTM chip row rides in its title
+            // row, between the title and the actions.
             ExpressiveHeader(
                 title = stringResource(R.string.feed_home),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .onSizeChanged { if (it.height != topBarHeightPx) topBarHeightPx = it.height },
                 containerColor = if (isPodcastsActive) Color.Transparent else Color.Unspecified,
                 backdrop = if (useFeedGlass) feedBackdrop else null,
+                inlineContent = if (state.homeChips.isEmpty()) {
+                    null
+                } else {
+                    {
+                        PinnedChipsBar(
+                            chips = state.homeChips,
+                            selectedChip = state.selectedChip,
+                            onChipClick = viewModel::onHomeChipSelected,
+                            outerPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        )
+                    }
+                },
                 actions = {
                     HeaderActionIcon(Icons.Filled.Search, "Search", onOpenSearch)
                     IconButton(onClick = onOpenSettings) {
@@ -1650,22 +1658,6 @@ fun FeedScreen(
                     }
                 },
             )
-            if (state.homeChips.isNotEmpty()) {
-                // Page-coloured strip so the feed scrolling under the glass
-                // never shows through around the chips (looks as before).
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .then(if (useFeedGlass) Modifier.background(chipStripColor) else Modifier),
-                ) {
-                    PinnedChipsBar(
-                        chips = state.homeChips,
-                        selectedChip = state.selectedChip,
-                        onChipClick = viewModel::onHomeChipSelected,
-                    )
-                }
-            }
-            }
     }
         SnackbarHost(
             hostState = snackbarHostState,

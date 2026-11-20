@@ -1,6 +1,5 @@
 package com.lastwave.app.ui.player
 
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Density
@@ -20,36 +19,26 @@ class PlayerSplitTest {
 
     @Test
     fun unfoldedFoldableDocksTheEndHalf() {
-        val split = PlayerSplit.of(windowWidthDp = 750, windowHeightDp = 830)!!
-        assertEquals(360.dp, split.sideWidth)
-        assertEquals(390, split.appWidthDp)
-        assertEquals(344, split.paneWidthDp)
+        val split = PlayerSplit.of(windowWidthDp = 760, windowHeightDp = 822)!!
+        assertEquals(380.dp, split.sideWidth)
+        assertEquals(380, split.appWidthDp)
+        assertEquals(380, split.paneWidthDp)
     }
 
     @Test
     fun endColumnStaysBetweenPhoneWidths() {
-        assertEquals(340.dp, PlayerSplit.of(windowWidthDp = 673, windowHeightDp = 841)!!.sideWidth)
-        assertEquals(440.dp, PlayerSplit.of(windowWidthDp = 1280, windowHeightDp = 800)!!.sideWidth)
+        assertEquals(360.dp, PlayerSplit.of(windowWidthDp = 673, windowHeightDp = 841)!!.sideWidth)
+        assertEquals(480.dp, PlayerSplit.of(windowWidthDp = 1280, windowHeightDp = 800)!!.sideWidth)
     }
 
     @Test
-    fun dockedCardSitsBelowTheStatusBarOneMarginFromTheAppColumn() {
-        val card = density.sidePaneRect(window, 360.dp, WindowInsets(0, 50, 0, 48), LayoutDirection.Ltr)
-        // App column ends at 1500 - 720 = 780; margins are 8dp = 16px. The card runs
-        // under the gesture bar: the player pads its own controls above it.
-        assertEquals(Rect(796f, 66f, 1484f, 1644f), card)
+    fun dockedPlayerFillsTheEndColumn() {
+        assertEquals(Rect(780f, 0f, 1500f, 1660f), density.sidePaneRect(window, 360.dp, LayoutDirection.Ltr))
     }
 
     @Test
     fun rightToLeftDocksOnTheLeft() {
-        val card = density.sidePaneRect(window, 360.dp, WindowInsets(0, 50, 0, 48), LayoutDirection.Rtl)
-        assertEquals(Rect(16f, 66f, 704f, 1644f), card)
-    }
-
-    @Test
-    fun endInsetNarrowsTheCardWithoutMovingItsAppSide() {
-        val card = density.sidePaneRect(window, 360.dp, WindowInsets(0, 50, 60, 0), LayoutDirection.Ltr)
-        assertEquals(Rect(796f, 66f, 1424f, 1644f), card)
+        assertEquals(Rect(0f, 0f, 720f, 1660f), density.sidePaneRect(window, 360.dp, LayoutDirection.Rtl))
     }
 
     private val density = Density(2f)

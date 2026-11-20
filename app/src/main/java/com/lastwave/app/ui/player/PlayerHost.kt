@@ -50,10 +50,6 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.util.lerp
-import androidx.compose.foundation.layout.consumeWindowInsets
-import androidx.compose.foundation.layout.displayCutout
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
 import com.lastwave.app.ui.common.WindowPane
 import kotlin.math.cos
 import kotlin.math.sin
@@ -587,11 +583,6 @@ fun PlayerHost(
         LocalChromeCollapse provides chromeCollapse,
         LocalLiquidGlassBackdrop provides (if (miniGlass) miniBackdrop else null),
     ) {
-        // Read in layout and draw only, and without the keyboard (safeDrawing has it): typing
-        // must neither recompose the host nor move the docked card.
-        val systemBars = WindowInsets.systemBars
-        val cutout = WindowInsets.displayCutout
-        val barInsets = remember(systemBars, cutout) { systemBars.union(cutout) }
         val layoutDirection = LocalLayoutDirection.current
         val appBackground = MaterialTheme.colorScheme.background
         Box(
@@ -685,16 +676,7 @@ fun PlayerHost(
                             val p = playerExpansion.value.coerceIn(0f, 1f)
                             alpha = (1f - p * 2.2f).coerceIn(0f, 1f)
                             // Follow the morphing card's top edge as it rises.
-                            val cardTop = if (split == null) {
-                                0f
-                            } else {
-                                androidx.compose.ui.util.lerp(
-                                    barInsets.getTop(this) + SidePaneMargin.toPx(),
-                                    0f,
-                                    paneFullscreen.value.coerceIn(0f, 1f),
-                                )
-                            }
-                            translationY = (cardTop - (miniCardBounds?.top ?: 0f)) * p
+                            translationY = -(miniCardBounds?.top ?: 0f) * p
                         }
                         .dockBesidePill(miniBottomPadding, chromeCollapse.progress),
                 )
@@ -735,7 +717,7 @@ fun PlayerHost(
                             val p = playerExpansion.value.coerceIn(0f, 1f)
                             val f = paneFullscreen.value.coerceIn(0f, 1f)
                             val whole = Rect(0f, 0f, size.width, size.height)
-                            val docked = split?.let { sidePaneRect(size, it.sideWidth, barInsets, layoutDirection) }
+                            val docked = split?.let { sidePaneRect(size, it.sideWidth, layoutDirection) }
                             val target = if (docked == null) whole else lerp(docked, whole, f)
                             // Start rect = mini player card; fallback (button mode / no mini)
                             // = zero-height strip at the bottom, i.e. a reveal from below.
@@ -766,12 +748,7 @@ fun PlayerHost(
                                 if (dockedSplit == null) {
                                     Modifier.fillMaxSize()
                                 } else {
-                                    // The card sits below the status bar and clear of the window's side.
-                                    Modifier
-                                        .sidePaneBounds(dockedSplit.sideWidth, barInsets)
-                                        .consumeWindowInsets(
-                                            WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-                                        )
+                                    Modifier.sidePaneBounds(dockedSplit.sideWidth)
                                 },
                             )
                             .graphicsLayer {

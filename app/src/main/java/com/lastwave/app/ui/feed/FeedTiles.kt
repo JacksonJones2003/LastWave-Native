@@ -474,6 +474,9 @@ internal fun PinnedChipsBar(
     selectedChip: HomeChip?,
     onChipClick: (HomeChip?) -> Unit,
     modifier: Modifier = Modifier,
+    /** Zero when the bar sits inside the header's title row. */
+    outerPadding: androidx.compose.foundation.layout.PaddingValues =
+        androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
 ) {
     if (chips.isEmpty()) return
     val haptics = LocalHapticFeedback.current
@@ -483,7 +486,7 @@ internal fun PinnedChipsBar(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp),
+            .padding(outerPadding),
     ) {
         LazyRow(
             modifier = Modifier
