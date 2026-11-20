@@ -1630,34 +1630,55 @@ fun FeedScreen(
             }
         }
 
-            // Glass header on top of the feed; the YTM chip row rides in its title
-            // row, between the title and the actions.
-            ExpressiveHeader(
-                title = stringResource(R.string.feed_home),
-                modifier = Modifier
+            // Glass header on top of the feed. On a wide window the YTM chip row rides in its
+            // title row; folded it is the opaque strip under the header (not part of the glass).
+            // The real window decides, not the app's column beside a docked player, so the chips
+            // don't jump rows when the player opens.
+            val chipsInHeader = androidx.compose.ui.platform.LocalContext.current
+                .resources.configuration.screenWidthDp >= 600
+            val chips: @Composable (androidx.compose.foundation.layout.PaddingValues) -> Unit = { padding ->
+                PinnedChipsBar(
+                    chips = state.homeChips,
+                    selectedChip = state.selectedChip,
+                    onChipClick = viewModel::onHomeChipSelected,
+                    outerPadding = padding,
+                )
+            }
+            val chipStripColor = MaterialTheme.colorScheme.background
+            Column(
+                Modifier
                     .align(Alignment.TopCenter)
+                    .fillMaxWidth()
                     .onSizeChanged { if (it.height != topBarHeightPx) topBarHeightPx = it.height },
-                containerColor = if (isPodcastsActive) Color.Transparent else Color.Unspecified,
-                backdrop = if (useFeedGlass) feedBackdrop else null,
-                inlineContent = if (state.homeChips.isEmpty()) {
-                    null
-                } else {
-                    {
-                        PinnedChipsBar(
-                            chips = state.homeChips,
-                            selectedChip = state.selectedChip,
-                            onChipClick = viewModel::onHomeChipSelected,
-                            outerPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-                        )
+            ) {
+                ExpressiveHeader(
+                    title = stringResource(R.string.feed_home),
+                    containerColor = if (isPodcastsActive) Color.Transparent else Color.Unspecified,
+                    backdrop = if (useFeedGlass) feedBackdrop else null,
+                    inlineContent = if (chipsInHeader && state.homeChips.isNotEmpty()) {
+                        { chips(androidx.compose.foundation.layout.PaddingValues(0.dp)) }
+                    } else {
+                        null
+                    },
+                    actions = {
+                        HeaderActionIcon(Icons.Filled.Search, "Search", onOpenSearch)
+                        IconButton(onClick = onOpenSettings) {
+                            com.lastwave.app.ui.home.ProfileAvatar(avatarUrl = state.avatarUrl, modifier = Modifier.size(38.dp))
+                        }
+                    },
+                )
+                if (!chipsInHeader && state.homeChips.isNotEmpty()) {
+                    // Page-coloured strip so the feed scrolling under the glass
+                    // never shows through around the chips.
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .then(if (useFeedGlass) Modifier.background(chipStripColor) else Modifier),
+                    ) {
+                        chips(androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp))
                     }
-                },
-                actions = {
-                    HeaderActionIcon(Icons.Filled.Search, "Search", onOpenSearch)
-                    IconButton(onClick = onOpenSettings) {
-                        com.lastwave.app.ui.home.ProfileAvatar(avatarUrl = state.avatarUrl, modifier = Modifier.size(38.dp))
-                    }
-                },
-            )
+                }
+            }
     }
         SnackbarHost(
             hostState = snackbarHostState,
