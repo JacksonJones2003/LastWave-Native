@@ -374,6 +374,8 @@ internal fun MiniPlayer(
     onCardBounds: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null,
     /** 0 = full card, 1 = slim card docked beside the collapsed nav pill. Read in layout/draw only. */
     compactProgress: () -> Float = { 0f },
+    /** Wide windows: a slim, artwork-tinted row this tall, level with the nav bar beside it. */
+    rowHeight: androidx.compose.ui.unit.Dp? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -457,7 +459,18 @@ internal fun MiniPlayer(
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (isGlass) {
+        if (rowHeight != null) {
+            NavRowMiniPlayer(
+                state = state,
+                progressState = progressState,
+                height = rowHeight,
+                active = windowActive,
+                onExpand = onExpand,
+                onToggle = onToggle,
+                onNext = onNext,
+                interaction = barInteraction,
+            )
+        } else if (isGlass) {
             Surface(
                 shape = shape,
                 // Transparent card when glass (glass draws scrim), 95% primaryContainer otherwise to match theme color.
@@ -685,8 +698,116 @@ internal fun MiniPlayer(
     }
 }
 
+/**
+ * The mini player as one slot of the nav row: as tall as the bar, tinted from the artwork,
+ * the cover filling the height so it reads at a glance instead of shrinking into a thumbnail.
+ */
 @Composable
-internal fun MiniPlayerProgress(progressState: StateFlow<PlaybackProgressState>) {
+private fun NavRowMiniPlayer(
+    state: PlaybackChromeState,
+    progressState: StateFlow<PlaybackProgressState>,
+    height: androidx.compose.ui.unit.Dp,
+    active: Boolean,
+    onExpand: () -> Unit,
+    onToggle: () -> Unit,
+    onNext: () -> Unit,
+    interaction: MutableInteractionSource,
+) {
+    val track = state.current ?: return
+    val tint = rememberArtworkTint(track.artworkUrl)
+    // Always a dark card, so the foreground is always the light overlay palette.
+    val onTint = Color.White
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = tint,
+        contentColor = onTint,
+        shadowElevation = 6.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .clickable(interactionSource = interaction, indication = null, onClick = onExpand),
+    ) {
+        Box {
+            Row(
+                Modifier.fillMaxSize().padding(start = 6.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                PlayerArtwork(
+                    track = track,
+                    modifier = Modifier.padding(vertical = 6.dp).fillMaxHeight().aspectRatio(1f),
+                    corner = 8.dp,
+                )
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(
+                        track.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().playingMarquee(state.isPlaying && active),
+                    )
+                    Text(
+                        track.artist,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = onTint.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                IconButton(onClick = onToggle) {
+                    if (state.isBuffering) {
+                        ExpressiveInlineLoadingIndicator(size = 22.dp, color = onTint, strokeWidth = 2.dp)
+                    } else {
+                        AnimatedPlayPauseIcon(state.isPlaying, Modifier.size(26.dp))
+                    }
+                }
+                IconButton(onClick = onNext, enabled = state.queueSize > 1) {
+                    Icon(
+                        Icons.Filled.SkipNext,
+                        "Next",
+                        tint = if (state.queueSize > 1) onTint else onTint.copy(alpha = 0.38f),
+                    )
+                }
+            }
+            MiniPlayerProgress(
+                progressState,
+                trackColor = onTint.copy(alpha = 0.2f),
+                barColor = onTint,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 8.dp).height(2.dp),
+            )
+        }
+    }
+}
+
+/** A dark colour from the artwork, the way the card behind white text needs it; neutral until loaded. */
+@Composable
+private fun rememberArtworkTint(url: String?): Color {
+    val context = LocalContext.current
+    var tint by remember(url) { mutableStateOf<Color?>(null) }
+    LaunchedEffect(url) {
+        if (url.isNullOrBlank()) return@LaunchedEffect
+        tint = withContext(Dispatchers.Default) {
+            runCatching {
+                val request = ImageRequest.Builder(context).data(url).allowHardware(false).size(96).build()
+                val bitmap = ((context.imageLoader.execute(request) as? SuccessResult)?.drawable as? BitmapDrawable)?.bitmap
+                val palette = bitmap?.let { Palette.from(it).generate() }
+                val swatch = palette?.darkVibrantSwatch ?: palette?.darkMutedSwatch ?: palette?.dominantSwatch
+                swatch?.let { lerp(Color(it.rgb), Color.Black, 0.35f) }
+            }.getOrNull()
+        }
+    }
+    val color by animateColorAsState(tint ?: Color(0xFF2A2A2A), tween(500), label = "miniTint")
+    return color
+}
+
+@Composable
+internal fun MiniPlayerProgress(
+    progressState: StateFlow<PlaybackProgressState>,
+    trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
+    barColor: Color = MaterialTheme.colorScheme.primary,
+    modifier: Modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(3.dp),
+) {
     val progressFractionState = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(progressState) {
         // Each update re-renders every glass blur on screen (~30 ms of GPU), so normal
@@ -702,12 +823,10 @@ internal fun MiniPlayerProgress(progressState: StateFlow<PlaybackProgressState>)
         }
     }
     Box(
-        Modifier
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(3.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .background(trackColor),
     ) {
         // Scale an already measured layer instead of changing its width and
         // forcing the mini-player through measure/layout on every ticker tick.
@@ -718,7 +837,7 @@ internal fun MiniPlayerProgress(progressState: StateFlow<PlaybackProgressState>)
                     scaleX = progressFractionState.floatValue.coerceIn(0f, 1f)
                     transformOrigin = TransformOrigin(0f, 0.5f)
                 }
-                .background(MaterialTheme.colorScheme.primary),
+                .background(barColor),
         )
     }
 }

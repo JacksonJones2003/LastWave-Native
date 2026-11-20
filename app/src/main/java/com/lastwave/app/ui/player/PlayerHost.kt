@@ -514,10 +514,16 @@ fun PlayerHost(
         val target = if (dockedSplit != null) 0f else 1f
         // Closed, there is no card to resize.
         if (playerExpansion.value == 0f) paneFullscreen.snapTo(target)
-        else paneFullscreen.animateTo(target, if (target == 1f) PlayerSheetOpenSpec else PlayerSheetCloseSpec)
+        else paneFullscreen.animateTo(target, ExpressiveMotion.spatialSlow())
     }
-    // The player hides while its card resizes between docked and full, then shows at the new size.
-    val paneSwapAlpha = { (1f - 2f * abs(paneFullscreen.value - paneFullscreen.targetValue)).coerceIn(0f, 1f) }
+    // The player is laid out at its new size at once; it fades back in over the card's last
+    // two thirds, rather than showing its old layout stretched or cropped.
+    val paneSwapAlpha = {
+        ((0.65f - abs(paneFullscreen.value - paneFullscreen.targetValue)) / 0.65f).coerceIn(0f, 1f)
+    }
+    // The app takes its column as soon as the player opens and gets the window back as soon as it
+    // closes: resizing it every frame of the morph re-measured the whole app each frame.
+    val appDocked = split != null && expansionTarget == 1f
 
     var isPlayerDragging by remember { mutableStateOf(false) }
     val playerLayerShown by remember { derivedStateOf { playerExpansion.value > 0f } }
@@ -593,16 +599,14 @@ fun PlayerHost(
                 .fillMaxSize()
                 .onGloballyPositioned { hostOrigin = it.boundsInRoot().topLeft }
                 .then(
-                    if (split == null) {
+                    if (split == null || !appDocked) {
                         Modifier
                     } else {
                         Modifier.drawBehind {
                             // The window shows around the docked card; give it the app's background.
-                            val w = split.sideWidth.toPx() * playerExpansion.value.coerceIn(0f, 1f)
-                            if (w > 0f) {
-                                val x = if (layoutDirection == LayoutDirection.Ltr) size.width - w else 0f
-                                drawRect(appBackground, Offset(x, 0f), Size(w, size.height))
-                            }
+                            val w = split.sideWidth.toPx()
+                            val x = if (layoutDirection == LayoutDirection.Ltr) size.width - w else 0f
+                            drawRect(appBackground, Offset(x, 0f), Size(w, size.height))
                         }
                     },
                 ),
@@ -611,11 +615,7 @@ fun PlayerHost(
                 Modifier
                     .fillMaxSize()
                     .then(
-                        if (split == null) {
-                            Modifier
-                        } else {
-                            Modifier.appColumn(split.sideWidth) { playerExpansion.value.coerceIn(0f, 1f) }
-                        },
+                        if (split == null || !appDocked) Modifier else Modifier.appColumn(split.sideWidth) { 1f },
                     )
                     .drawWithContent {
                         // Under the opaque full player the shell is invisible, but drawing it anyway
@@ -630,10 +630,9 @@ fun PlayerHost(
             ) {
                 Box(Modifier.fillMaxSize().liquidGlassSource(if (miniGlass) miniBackdrop else null)) {
                     com.lastwave.app.ui.common.AmbientAnimationsGate(visible = { !contentCovered }) {
-                        // The app lays out for its column while the player is docked or leaving it.
-                        val appSplit = split?.takeIf { expansionTarget == 1f || playerLayerShown }
+                        // The app lays out for its column while the player is docked.
                         WindowPane(
-                            widthDp = appSplit?.appWidthDp ?: window.screenWidthDp,
+                            widthDp = split?.takeIf { appDocked }?.appWidthDp ?: window.screenWidthDp,
                             heightDp = window.screenHeightDp,
                             content = content,
                         )
@@ -641,9 +640,16 @@ fun PlayerHost(
                 }
             }
             if (miniPlayerShown && showMiniPlayer) {
+                // Wide windows: as tall as the bar beside it and level with it (MainShell's bar metrics).
+                val liquidNav = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && LocalLiquidGlass.current
+                val (navRowHeight, navRowLift) = when {
+                    !miniBesideNav -> 64.dp to 14.dp
+                    material3NavigationEnabled && !liquidNav -> 66.dp to 0.dp
+                    liquidNav && !material3NavigationEnabled -> 64.dp to 8.dp
+                    else -> 60.dp to 12.dp
+                }
                 val miniBottomPadding = when {
-                    // One row with the bar, bottoms aligned.
-                    miniBesideNav -> 8.dp
+                    split != null -> navRowLift
                     hasBottomNavigation -> if (material3NavigationEnabled) 84.dp else 80.dp
                     else -> 14.dp
                 }
@@ -664,6 +670,7 @@ fun PlayerHost(
                         }
                     },
                     compactProgress = chromeCollapse.progress,
+                    rowHeight = if (split != null) navRowHeight else null,
                     modifier = Modifier
                         .then(
                             // Wide windows: the end column, where the docked player opens.
@@ -745,8 +752,12 @@ fun PlayerHost(
                             clip = p < 1f || f < 1f
                         }
                         .drawBehind {
-                            // Solid card surface visible until the full player fades in.
-                            if (playerExpansion.value < 1f || paneSwapAlpha() < 1f) drawRect(morphCardColor)
+                            // Solid card surface visible until the full player fades in. While it
+                            // resizes between docked and full, dark like the player, not a grey flash.
+                            when {
+                                playerExpansion.value < 1f -> drawRect(morphCardColor)
+                                paneSwapAlpha() < 1f -> drawRect(Color.Black)
+                            }
                         },
                 ) {
                     Box(
@@ -823,9 +834,7 @@ fun PlayerHost(
                             if (split == null) {
                                 Modifier
                             } else {
-                                Modifier.appColumn(split.sideWidth) {
-                                    if (miniPlayerShown) 1f else playerExpansion.value.coerceIn(0f, 1f)
-                                }
+                                Modifier.appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
                             },
                         )
                         .graphicsLayer {

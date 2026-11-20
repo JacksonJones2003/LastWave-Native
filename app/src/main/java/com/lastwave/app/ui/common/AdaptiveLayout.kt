@@ -5,7 +5,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
@@ -55,6 +57,15 @@ fun isExpandedScreen(): Boolean =
  */
 @Composable
 fun WindowPane(widthDp: Int, heightDp: Int, content: @Composable () -> Unit) {
+    // LocalConfiguration never compares equal, so every re-provide recomposes all its readers
+    // (each stringResource). Callers pass a fresh lambda on every state change; read it through
+    // a State so only a size change reruns the provider.
+    val latestContent by rememberUpdatedState(content)
+    PaneConfiguration(widthDp, heightDp) { latestContent() }
+}
+
+@Composable
+private fun PaneConfiguration(widthDp: Int, heightDp: Int, content: @Composable () -> Unit) {
     val window = LocalConfiguration.current
     val pane = remember(window, widthDp, heightDp) {
         if (window.screenWidthDp == widthDp && window.screenHeightDp == heightDp) {
