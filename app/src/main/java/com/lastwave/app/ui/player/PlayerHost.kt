@@ -47,6 +47,14 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.util.lerp
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import com.lastwave.app.ui.common.WindowPane
 import kotlin.math.cos
 import kotlin.math.sin
 import androidx.compose.foundation.layout.defaultMinSize
@@ -375,6 +383,13 @@ fun PlayerHost(
     val playbackState by viewModel.player.stateWithoutProgress.collectAsStateWithLifecycle()
     val activeDownloads by viewModel.activeDownloads.collectAsStateWithLifecycle()
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val window = LocalConfiguration.current
+    val split = remember(window.screenWidthDp, window.screenHeightDp) {
+        PlayerSplit.of(window.screenWidthDp, window.screenHeightDp)
+    }
+    // Wide windows only: the open player fills the window instead of docking beside the app.
+    var playerFullscreen by rememberSaveable { mutableStateOf(false) }
+    val dockedSplit = split?.takeIf { !playerFullscreen }
     var currentTab by rememberSaveable { mutableStateOf(FullPlayerTab.NOW_PLAYING) }
     // Lyrics shown inline on Now Playing. Kept beside currentTab, not as a tab,
     // so the regular lyrics tab returns to it on back.
@@ -421,24 +436,24 @@ fun PlayerHost(
             playerLyrics = false
         }
     }
-    LaunchedEffect(Unit) {
-        viewModel.navEvents.collect {
+    // A page opened from the player: a docked player stays beside it, a full one docks so it shows.
+    val showPage by rememberUpdatedState {
+        if (split != null) {
+            playerFullscreen = false
+        } else {
             expanded = false
             currentTab = FullPlayerTab.NOW_PLAYING
         }
     }
     LaunchedEffect(Unit) {
-        viewModel.mixLauncher.requests.collect {
-            expanded = false
-            currentTab = FullPlayerTab.NOW_PLAYING
-        }
+        viewModel.navEvents.collect { showPage() }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.mixLauncher.requests.collect { showPage() }
     }
     LaunchedEffect(Unit) {
         viewModel.genreExplorer.pendingGenre.collect { genre ->
-            if (genre != null) {
-                expanded = false
-                currentTab = FullPlayerTab.NOW_PLAYING
-            }
+            if (genre != null) showPage()
         }
     }
     LaunchedEffect(Unit) {
@@ -455,7 +470,10 @@ fun PlayerHost(
             }
         }
     }
-    val miniPlayerVisible = state.current != null && !expanded && !settings.buttonNowPlayingEnabled && !hideMiniPlayer
+    val miniPlayerShown = state.current != null && !settings.buttonNowPlayingEnabled && !hideMiniPlayer
+    val miniPlayerVisible = miniPlayerShown && !expanded
+    // Wide windows keep the mini player in the nav row's end slot, not stacked above the bar.
+    val miniBesideNav = split != null && hasBottomNavigation
 
     // Sibling pattern: ONE backdrop capturing feed content,
     // consumed by the sibling MiniPlayer. Unconditional remember keeps composition stable.
@@ -490,12 +508,24 @@ fun PlayerHost(
         )
         if (expansionTarget == 0f) playerMounted = false
     }
+    // 0 = docked beside the app, 1 = filling the window (always, below the split size).
+    val paneFullscreen = remember { Animatable(if (dockedSplit != null) 0f else 1f) }
+    LaunchedEffect(dockedSplit != null) {
+        val target = if (dockedSplit != null) 0f else 1f
+        // Closed, there is no card to resize.
+        if (playerExpansion.value == 0f) paneFullscreen.snapTo(target)
+        else paneFullscreen.animateTo(target, if (target == 1f) PlayerSheetOpenSpec else PlayerSheetCloseSpec)
+    }
+    // The player hides while its card resizes between docked and full, then shows at the new size.
+    val paneSwapAlpha = { (1f - 2f * abs(paneFullscreen.value - paneFullscreen.targetValue)).coerceIn(0f, 1f) }
 
     var isPlayerDragging by remember { mutableStateOf(false) }
     val playerLayerShown by remember { derivedStateOf { playerExpansion.value > 0f } }
-    val contentCovered by remember { derivedStateOf { playerExpansion.value >= 1f && !isPlayerDragging } }
+    // How much of the window the player covers: all of it once open, none while docked.
+    val coverProgress = { playerExpansion.value.coerceIn(0f, 1f) * paneFullscreen.value.coerceIn(0f, 1f) }
+    val contentCovered by remember { derivedStateOf { coverProgress() >= 1f && !isPlayerDragging } }
     val showMiniPlayer by remember { derivedStateOf { playerExpansion.value < 0.45f } }
-    val showBottomNav by remember { derivedStateOf { state.current == null || playerExpansion.value < 0.625f } }
+    val showBottomNav by remember { derivedStateOf { state.current == null || coverProgress() < 0.625f } }
     // Mini player rides above the growing card for the first half of the morph.
     val miniOnTop by remember { derivedStateOf { playerExpansion.value > 0f && playerExpansion.value < 0.5f } }
 
@@ -508,7 +538,10 @@ fun PlayerHost(
 
     val bottomNavSlot = remember { mutableStateOf<BottomNavigationContent>({ _ -> }) }
     // Off: progress stays at 0, which is the classic full bar + full mini player layout.
-    val chromeCollapse = rememberChromeCollapseState(enabled = hasBottomNavigation && settings.collapsingNavBar)
+    // A wide window's single nav + mini player row has nothing to collapse.
+    val chromeCollapse = rememberChromeCollapseState(
+        enabled = hasBottomNavigation && settings.collapsingNavBar && split == null,
+    )
     // While docking, the card slides down over the fading bar, not under it.
     val chromeDocking by remember { derivedStateOf { chromeCollapse.progress() > 0f } }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -528,7 +561,12 @@ fun PlayerHost(
     CompositionLocalProvider(
         LocalMusicPlayer provides viewModel.player,
         LocalAddToPlaylist provides requestAddToPlaylist,
-        LocalMiniPlayerScrollClearance provides if (state.current != null && !settings.buttonNowPlayingEnabled && !hideMiniPlayer) 98.dp else 0.dp,
+        LocalMiniPlayerScrollClearance provides when {
+            !miniPlayerShown -> 0.dp
+            // Beside the bar the card only stands a little taller than it.
+            miniBesideNav -> 16.dp
+            else -> 98.dp
+        },
         LocalMiniPlayerSnackbarClearance provides if (miniPlayerVisible) {
             // Keep snackbars clear of the tray: its bottom lift plus its ~80dp card.
             (if (hasBottomNavigation) {
@@ -543,36 +581,71 @@ fun PlayerHost(
         LocalChromeCollapse provides chromeCollapse,
         LocalLiquidGlassBackdrop provides (if (miniGlass) miniBackdrop else null),
     ) {
+        // Read in layout and draw only, and without the keyboard (safeDrawing has it): typing
+        // must neither recompose the host nor move the docked card.
+        val systemBars = WindowInsets.systemBars
+        val cutout = WindowInsets.displayCutout
+        val barInsets = remember(systemBars, cutout) { systemBars.union(cutout) }
+        val layoutDirection = LocalLayoutDirection.current
+        val appBackground = MaterialTheme.colorScheme.background
         Box(
             Modifier
                 .fillMaxSize()
-                .onGloballyPositioned { hostOrigin = it.boundsInRoot().topLeft },
+                .onGloballyPositioned { hostOrigin = it.boundsInRoot().topLeft }
+                .then(
+                    if (split == null) {
+                        Modifier
+                    } else {
+                        Modifier.drawBehind {
+                            // The window shows around the docked card; give it the app's background.
+                            val w = split.sideWidth.toPx() * playerExpansion.value.coerceIn(0f, 1f)
+                            if (w > 0f) {
+                                val x = if (layoutDirection == LayoutDirection.Ltr) size.width - w else 0f
+                                drawRect(appBackground, Offset(x, 0f), Size(w, size.height))
+                            }
+                        }
+                    },
+                ),
         ) {
             Box(
                 Modifier
                     .fillMaxSize()
+                    .then(
+                        if (split == null) {
+                            Modifier
+                        } else {
+                            Modifier.appColumn(split.sideWidth) { playerExpansion.value.coerceIn(0f, 1f) }
+                        },
+                    )
                     .drawWithContent {
                         // Under the opaque full player the shell is invisible, but drawing it anyway
                         // re-rendered the whole feed (and its path clip, masked on the CPU) every frame.
                         if (contentCovered) return@drawWithContent
                         drawContent()
-                        val p = playerExpansion.value.coerceIn(0f, 1f)
-                        if (p > 0f) {
-                            drawRect(Color.Black.copy(alpha = 0.45f * p))
+                        val c = coverProgress()
+                        if (c > 0f) {
+                            drawRect(Color.Black.copy(alpha = 0.45f * c))
                         }
                     },
             ) {
                 Box(Modifier.fillMaxSize().liquidGlassSource(if (miniGlass) miniBackdrop else null)) {
                     com.lastwave.app.ui.common.AmbientAnimationsGate(visible = { !contentCovered }) {
-                        content()
+                        // The app lays out for its column while the player is docked or leaving it.
+                        val appSplit = split?.takeIf { expansionTarget == 1f || playerLayerShown }
+                        WindowPane(
+                            widthDp = appSplit?.appWidthDp ?: window.screenWidthDp,
+                            heightDp = window.screenHeightDp,
+                            content = content,
+                        )
                     }
                 }
             }
-            if (state.current != null && !settings.buttonNowPlayingEnabled && !hideMiniPlayer && showMiniPlayer) {
-                val miniBottomPadding = if (hasBottomNavigation) {
-                    if (material3NavigationEnabled) 84.dp else 80.dp
-                } else {
-                    14.dp
+            if (miniPlayerShown && showMiniPlayer) {
+                val miniBottomPadding = when {
+                    // One row with the bar, bottoms aligned.
+                    miniBesideNav -> 8.dp
+                    hasBottomNavigation -> if (material3NavigationEnabled) 84.dp else 80.dp
+                    else -> 14.dp
                 }
                 MiniPlayer(
                     state = state,
@@ -592,13 +665,29 @@ fun PlayerHost(
                     },
                     compactProgress = chromeCollapse.progress,
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
+                        .then(
+                            // Wide windows: the end column, where the docked player opens.
+                            if (split == null) {
+                                Modifier.align(Alignment.BottomCenter)
+                            } else {
+                                Modifier.align(Alignment.BottomEnd).width(split.sideWidth)
+                            },
+                        )
                         .zIndex(if (miniOnTop || chromeDocking) 1f else 0f)
                         .graphicsLayer {
                             val p = playerExpansion.value.coerceIn(0f, 1f)
                             alpha = (1f - p * 2.2f).coerceIn(0f, 1f)
                             // Follow the morphing card's top edge as it rises.
-                            translationY = -(miniCardBounds?.top ?: 0f) * p
+                            val cardTop = if (split == null) {
+                                0f
+                            } else {
+                                androidx.compose.ui.util.lerp(
+                                    barInsets.getTop(this) + SidePaneMargin.toPx(),
+                                    0f,
+                                    paneFullscreen.value.coerceIn(0f, 1f),
+                                )
+                            }
+                            translationY = (cardTop - (miniCardBounds?.top ?: 0f)) * p
                         }
                         .dockBesidePill(miniBottomPadding, chromeCollapse.progress),
                 )
@@ -637,60 +726,88 @@ fun PlayerHost(
                         .fillMaxSize()
                         .graphicsLayer {
                             val p = playerExpansion.value.coerceIn(0f, 1f)
+                            val f = paneFullscreen.value.coerceIn(0f, 1f)
+                            val whole = Rect(0f, 0f, size.width, size.height)
+                            val docked = split?.let { sidePaneRect(size, it.sideWidth, barInsets, layoutDirection) }
+                            val target = if (docked == null) whole else lerp(docked, whole, f)
                             // Start rect = mini player card; fallback (button mode / no mini)
                             // = zero-height strip at the bottom, i.e. a reveal from below.
-                            val start = miniCardBounds
-                                ?: androidx.compose.ui.geometry.Rect(0f, size.height, size.width, size.height)
-                            val left = androidx.compose.ui.util.lerp(start.left, 0f, p)
-                            val right = androidx.compose.ui.util.lerp(start.right, size.width, p)
-                            val top = androidx.compose.ui.util.lerp(start.top, 0f, p)
-                            val bottom = androidx.compose.ui.util.lerp(start.bottom, size.height, p)
+                            val start = miniCardBounds ?: Rect(target.left, size.height, target.right, size.height)
+                            val card = lerp(start, target, p)
                             val startRadius = minOf(start.height / 2f, PLAYER_SHEET_CORNER_RADIUS.toPx() + 8.dp.toPx())
+                            val endRadius = if (docked == null) 0f else lerp(SidePaneCorner.toPx(), 0f, f)
                             // Content is anchored to the card's top edge and clipped to the card.
-                            translationY = top
+                            translationY = card.top
                             // Pre-mount frames (p == 0): composed and measured, but not drawn over the mini player.
                             alpha = if (p == 0f) 0f else 1f
-                            shape = PlayerMorphShape(left, right, bottom - top, androidx.compose.ui.util.lerp(startRadius, 0f, p))
-                            clip = p < 1f
+                            shape = PlayerMorphShape(card.left, card.right, card.height, lerp(startRadius, endRadius, p))
+                            // A docked card stays clipped: rounded, and taps beside it reach the app.
+                            clip = p < 1f || f < 1f
                         }
                         .drawBehind {
                             // Solid card surface visible until the full player fades in.
-                            if (playerExpansion.value < 1f) drawRect(morphCardColor)
+                            if (playerExpansion.value < 1f || paneSwapAlpha() < 1f) drawRect(morphCardColor)
                         },
                 ) {
                     Box(
                         Modifier
-                            .fillMaxSize()
+                            .then(
+                                if (dockedSplit == null) {
+                                    Modifier.fillMaxSize()
+                                } else {
+                                    // The card sits below the status bar and clear of the window's side.
+                                    Modifier
+                                        .sidePaneBounds(dockedSplit.sideWidth, barInsets)
+                                        .consumeWindowInsets(
+                                            WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                                        )
+                                },
+                            )
                             .graphicsLayer {
                                 val p = playerExpansion.value.coerceIn(0f, 1f)
                                 // Full player: invisible until 25% expanded, opaque at 100%,
                                 // with a 24dp upward settle (PixelMusic FullPlayerVisualState).
                                 val contentAlpha = ((p - 0.25f) / 0.75f).coerceIn(0f, 1f)
-                                alpha = contentAlpha
+                                alpha = contentAlpha * paneSwapAlpha()
                                 val settlePx = with(sheetDensity) { 24.dp.toPx() }
-                                translationY = androidx.compose.ui.util.lerp(settlePx, 0f, contentAlpha)
+                                translationY = lerp(settlePx, 0f, contentAlpha)
                             },
                     ) {
-                        PredictiveBackScreen(
-                            enabled = expanded && state.current != null && currentTab == FullPlayerTab.NOW_PLAYING,
-                            // The player's only back handler: leave Player Lyrics first, then close.
-                            onBack = { if (playerLyrics) playerLyrics = false else expanded = false },
+                        WindowPane(
+                            widthDp = dockedSplit?.paneWidthDp ?: window.screenWidthDp,
+                            heightDp = window.screenHeightDp,
                         ) {
-                            ExpandedPlayer(
-                                viewModel = viewModel,
-                                currentTab = currentTab,
-                                onTabChange = { currentTab = it },
-                                playerLyrics = playerLyrics,
-                                onPlayerLyricsChange = { playerLyrics = it },
-                                onRetryLyrics = viewModel::retryLyrics,
-                                onCollapse = { expanded = false },
-                                onOpenArtist = { artist ->
-                                    expanded = false
-                                    viewModel.openArtist(artist)
+                            PredictiveBackScreen(
+                                // Docked, back belongs to the app's pages beside the player.
+                                enabled = expanded && state.current != null &&
+                                    currentTab == FullPlayerTab.NOW_PLAYING && dockedSplit == null,
+                                // The player's only back handler: leave Player Lyrics first, then dock or close.
+                                onBack = {
+                                    when {
+                                        playerLyrics -> playerLyrics = false
+                                        split != null -> playerFullscreen = false
+                                        else -> expanded = false
+                                    }
                                 },
-                                onDragStatusChange = { isPlayerDragging = it },
-                                isOpen = expanded,
-                            )
+                            ) {
+                                ExpandedPlayer(
+                                    viewModel = viewModel,
+                                    currentTab = currentTab,
+                                    onTabChange = { currentTab = it },
+                                    playerLyrics = playerLyrics,
+                                    onPlayerLyricsChange = { playerLyrics = it },
+                                    onRetryLyrics = viewModel::retryLyrics,
+                                    onCollapse = { expanded = false },
+                                    paneFullscreen = if (split == null) null else playerFullscreen,
+                                    onTogglePane = { playerFullscreen = !playerFullscreen },
+                                    onOpenArtist = { artist ->
+                                        showPage()
+                                        viewModel.openArtist(artist)
+                                    },
+                                    onDragStatusChange = { isPlayerDragging = it },
+                                    isOpen = expanded,
+                                )
+                            }
                         }
                     }
                 }
@@ -700,12 +817,22 @@ fun PlayerHost(
                 Box(
                     Modifier
                         .fillMaxSize()
+                        // Wide windows: the bar keeps to the app column beside the mini player or the docked
+                        // player; with neither (nothing playing, button mode) it spans the window.
+                        .then(
+                            if (split == null) {
+                                Modifier
+                            } else {
+                                Modifier.appColumn(split.sideWidth) {
+                                    if (miniPlayerShown) 1f else playerExpansion.value.coerceIn(0f, 1f)
+                                }
+                            },
+                        )
                         .graphicsLayer {
-                            val p = if (state.current == null) 1f else (1f - playerExpansion.value * 1.6f).coerceIn(0f, 1f)
-                            val e = if (state.current == null) 0f else playerExpansion.value.coerceIn(0f, 1f)
-                            alpha = p
-                            // Nav bar sinks off the bottom as the player card grows.
-                            translationY = e * 96.dp.toPx()
+                            val c = if (state.current == null) 0f else coverProgress()
+                            alpha = (1f - c * 1.6f).coerceIn(0f, 1f)
+                            // Nav bar sinks off the bottom as the player card grows over it.
+                            translationY = c * 96.dp.toPx()
                         },
                 ) {
                     CompositionLocalProvider(LocalMd3NavBar provides material3NavigationEnabled) {
@@ -755,6 +882,8 @@ internal fun ExpandedPlayer(
     onPlayerLyricsChange: (Boolean) -> Unit,
     onRetryLyrics: () -> Unit,
     onCollapse: () -> Unit,
+    paneFullscreen: Boolean?,
+    onTogglePane: () -> Unit,
     onOpenArtist: (String) -> Unit,
     onDragStatusChange: (Boolean) -> Unit = {},
     isOpen: Boolean = true,
@@ -806,6 +935,8 @@ internal fun ExpandedPlayer(
         onPlayerLyricsChange = onPlayerLyricsChange,
         onRetryLyrics = onRetryLyrics,
         onCollapse = onCollapse,
+        paneFullscreen = paneFullscreen,
+        onTogglePane = onTogglePane,
         onOpenArtist = onOpenArtist,
         isLiked = isLiked,
         // One saved state drives the heart and YouTube sync.

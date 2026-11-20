@@ -137,6 +137,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.CloseFullscreen
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.FastRewind
 import androidx.compose.material.icons.filled.FormatQuote
@@ -379,6 +381,9 @@ internal fun FullPlayer(
     onPlayerLyricsChange: (Boolean) -> Unit = {},
     onRetryLyrics: () -> Unit,
     onCollapse: () -> Unit,
+    /** Wide windows: true while filling the window, false while docked beside the app. Null elsewhere. */
+    paneFullscreen: Boolean? = null,
+    onTogglePane: () -> Unit = {},
     onOpenArtist: (String) -> Unit = {},
     isLiked: Boolean = false,
     onToggleLiked: () -> Unit = {},
@@ -488,6 +493,10 @@ internal fun FullPlayer(
     }
     var isVideoFullscreen by remember(track.videoId, track.title) { mutableStateOf(false) }
     val videoFullscreenActive = isVideoFullscreen && isVideoActive
+    // Immersive lyrics or video hide the system bars: a docked card would fill only its side.
+    LaunchedEffect(lyricsFullscreen || videoFullscreenActive) {
+        if ((lyricsFullscreen || videoFullscreenActive) && paneFullscreen == false) onTogglePane()
+    }
     DisposableEffect(view, videoFullscreenActive) {
         val activity = generateSequence(view.context) { (it as? android.content.ContextWrapper)?.baseContext }
             .filterIsInstance<android.app.Activity>().firstOrNull()
@@ -1189,30 +1198,25 @@ internal fun FullPlayer(
                             // FullPlayer sits on a dark blurred-artwork scrim in both light and
                             // dark mode, so foreground must use the white overlay palette â€”
                             // never MaterialTheme onSurface (near-black in light mode).
-                            LiquidGlassSurface(
-                                onClick = hapticClick {
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) {
-                                        onTabChange(FullPlayerTab.NOW_PLAYING)
-                                    } else {
-                                        onCollapse()
-                                    }
-                                },
-                                shape = CircleShape,
-                                color = liquidGlassContainerColor(if (isThemeLight) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f)),
-                                contentColor = if (isThemeLight) Color(0xFF222226) else Color.White.copy(alpha = 0.94f),
-                                glassModifier = Modifier.liquidGlassChrome(
-                                    CircleShape,
-                                    LocalLiquidGlass.current,
-                                    LiquidGlassPreset.FloatingControls,
-                                ),
-                                modifier = Modifier
-                                    .align(Alignment.CenterStart)
-                                    .size(44.dp),
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterStart),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
-                                Icon(
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) Icons.Filled.ArrowBack else Icons.Filled.ExpandMore,
-                                    if (currentTab != FullPlayerTab.NOW_PLAYING) "Back to player" else "Minimize player",
-                                    modifier = Modifier.size(26.dp),
+                                if (paneFullscreen != null) {
+                                    PlayerHeaderButton(
+                                        icon = if (paneFullscreen) Icons.Filled.CloseFullscreen else Icons.Filled.OpenInFull,
+                                        contentDescription = if (paneFullscreen) "Show player beside app" else "Full screen player",
+                                        isThemeLight = isThemeLight,
+                                        onClick = onTogglePane,
+                                    )
+                                }
+                                val onNowPlaying = currentTab == FullPlayerTab.NOW_PLAYING
+                                PlayerHeaderButton(
+                                    icon = if (onNowPlaying) Icons.Filled.ExpandMore else Icons.Filled.ArrowBack,
+                                    contentDescription = if (onNowPlaying) "Minimize player" else "Back to player",
+                                    isThemeLight = isThemeLight,
+                                    onClick = { if (onNowPlaying) onCollapse() else onTabChange(FullPlayerTab.NOW_PLAYING) },
+                                    iconSize = 26.dp,
                                 )
                             }
                             // The Now Playing label fades after 10 s so the artwork stays clean;
@@ -1331,24 +1335,12 @@ internal fun FullPlayer(
                                         )
                                     }
                                 }
-                                LiquidGlassSurface(
-                                    onClick = hapticClick { showTrackMenu = true },
-                                    shape = CircleShape,
-                                    color = liquidGlassContainerColor(if (isThemeLight) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f)),
-                                    contentColor = if (isThemeLight) Color(0xFF222226) else Color.White.copy(alpha = 0.94f),
-                                    glassModifier = Modifier.liquidGlassChrome(
-                                        CircleShape,
-                                        LocalLiquidGlass.current,
-                                        LiquidGlassPreset.FloatingControls,
-                                    ),
-                                    modifier = Modifier.size(44.dp),
-                                ) {
-                                    Icon(
-                                        Icons.Filled.MoreVert,
-                                        "Song options",
-                                        modifier = Modifier.size(22.dp),
-                                    )
-                                }
+                                PlayerHeaderButton(
+                                    icon = Icons.Filled.MoreVert,
+                                    contentDescription = "Song options",
+                                    isThemeLight = isThemeLight,
+                                    onClick = { showTrackMenu = true },
+                                )
                             }
                         }
                         Spacer(Modifier.height(6.dp))
@@ -2184,6 +2176,27 @@ internal fun FullPlayer(
         com.lastwave.app.ui.settings.autoeq.AutoEqDialog(onDismiss = { showAutoEq = false })
     }
 }
+}
+
+/** Round glass button in the player header, in the header's overlay palette. */
+@Composable
+private fun PlayerHeaderButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isThemeLight: Boolean,
+    onClick: () -> Unit,
+    iconSize: androidx.compose.ui.unit.Dp = 22.dp,
+) {
+    LiquidGlassSurface(
+        onClick = hapticClick(action = onClick),
+        shape = CircleShape,
+        color = liquidGlassContainerColor(if (isThemeLight) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f)),
+        contentColor = if (isThemeLight) Color(0xFF222226) else Color.White.copy(alpha = 0.94f),
+        glassModifier = Modifier.liquidGlassChrome(CircleShape, LocalLiquidGlass.current, LiquidGlassPreset.FloatingControls),
+        modifier = Modifier.size(44.dp),
+    ) {
+        Icon(icon, contentDescription, modifier = Modifier.size(iconSize))
+    }
 }
 
 /** Blurs only the [top, bottom] band, feathered inside its edges, over the

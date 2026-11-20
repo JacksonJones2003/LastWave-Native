@@ -184,9 +184,10 @@ private const val MIN_LAYOUT_WIDTH_DP = 360f
  * Layouts use fixed dp boxes, so huge system font or a very narrow screen
  * (old phones, large "Display size") overflowed them. Cap the font scale and
  * lay narrow screens out as 360dp wide. Normal setups get the system density untouched.
+ * Also fits a pane narrower than the window (see WindowPane).
  */
 @Composable
-private fun rememberFittedDensity(): Density {
+internal fun rememberFittedDensity(): Density {
     val density = LocalDensity.current
     val widthDp = LocalConfiguration.current.screenWidthDp.toFloat()
     val shrink = if (widthDp > 0f && widthDp < MIN_LAYOUT_WIDTH_DP) widthDp / MIN_LAYOUT_WIDTH_DP else 1f
