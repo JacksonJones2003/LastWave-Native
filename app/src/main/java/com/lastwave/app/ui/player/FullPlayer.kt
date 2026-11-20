@@ -384,6 +384,8 @@ internal fun FullPlayer(
     /** Wide windows: true while filling the window, false while docked beside the app. Null elsewhere. */
     paneFullscreen: Boolean? = null,
     onTogglePane: () -> Unit = {},
+    /** Wide windows, full screen: the queue stays open as the end column. */
+    queueBeside: Boolean = false,
     onOpenArtist: (String) -> Unit = {},
     isLiked: Boolean = false,
     onToggleLiked: () -> Unit = {},
@@ -437,7 +439,8 @@ internal fun FullPlayer(
     // This full bleed is the single-column (portrait) hero. The two-column
     // landscape layout draws its own full-bleed art pane on the left
     // (LandscapeArtworkPane), so the portrait hero must not paint behind it.
-    val fullBleedBlocked = isTabletLandscape
+    // Beside the queue the art is a sleeve card in its column, not a hero behind both columns.
+    val fullBleedBlocked = isTabletLandscape || queueBeside
     val showFullBleed = canvasFullBleedEnabled && !isVideoActive && !fullBleedBlocked
     val showSleeveCanvas = isCanvasActive && !showFullBleed && !isVideoActive
     val beatRhythm by com.lastwave.app.playback.rhythm.FluidRhythmEngine.rhythm.collectAsStateWithLifecycle()
@@ -493,6 +496,10 @@ internal fun FullPlayer(
     }
     var isVideoFullscreen by remember(track.videoId, track.title) { mutableStateOf(false) }
     val videoFullscreenActive = isVideoFullscreen && isVideoActive
+    // The queue is already on screen beside the player; its tab would only repeat it.
+    LaunchedEffect(queueBeside, currentTab) {
+        if (queueBeside && currentTab == FullPlayerTab.QUEUE) onTabChange(FullPlayerTab.NOW_PLAYING)
+    }
     // Immersive lyrics or video hide the system bars: a docked card would fill only its side.
     LaunchedEffect(lyricsFullscreen || videoFullscreenActive) {
         if ((lyricsFullscreen || videoFullscreenActive) && paneFullscreen == false) onTogglePane()
@@ -1163,10 +1170,30 @@ internal fun FullPlayer(
             val showError = state.error != null && !lyricsFullscreen
             val bottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
             val tabBottomInset = if (showError) 0.dp else bottomInset
+            if (queueBeside) {
+                // The queue as the end column, over the same artwork backdrop; it reorders by its handles.
+                QueuePanel(
+                    state,
+                    player,
+                    bottomPadding = bottomInset,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .fillMaxWidth(0.5f)
+                        .fillMaxHeight()
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
+                        .padding(start = 8.dp, end = 16.dp, top = 8.dp),
+                )
+            }
             Column(
                 Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)),
+                    .fillMaxHeight()
+                    .fillMaxWidth(if (queueBeside) 0.5f else 1f)
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(
+                            if (queueBeside) WindowInsetsSides.Top + WindowInsetsSides.Start
+                            else WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                        ),
+                    ),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 // â”€â”€ Header: slimmer, calmer, premium â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

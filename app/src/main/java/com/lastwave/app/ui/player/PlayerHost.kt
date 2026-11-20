@@ -762,7 +762,12 @@ fun PlayerHost(
                             },
                     ) {
                         WindowPane(
-                            widthDp = dockedSplit?.paneWidthDp ?: window.screenWidthDp,
+                            // Full screen on a wide window the player is one of two columns, the queue the other.
+                            widthDp = when {
+                                dockedSplit != null -> dockedSplit.paneWidthDp
+                                split != null -> window.screenWidthDp / 2
+                                else -> window.screenWidthDp
+                            },
                             heightDp = window.screenHeightDp,
                         ) {
                             PredictiveBackScreen(
@@ -788,6 +793,7 @@ fun PlayerHost(
                                     onCollapse = { expanded = false },
                                     paneFullscreen = if (split == null) null else playerFullscreen,
                                     onTogglePane = { playerFullscreen = !playerFullscreen },
+                                    queueBeside = split != null && dockedSplit == null,
                                     onOpenArtist = { artist ->
                                         showPage()
                                         viewModel.openArtist(artist)
@@ -870,6 +876,7 @@ internal fun ExpandedPlayer(
     onCollapse: () -> Unit,
     paneFullscreen: Boolean?,
     onTogglePane: () -> Unit,
+    queueBeside: Boolean,
     onOpenArtist: (String) -> Unit,
     onDragStatusChange: (Boolean) -> Unit = {},
     isOpen: Boolean = true,
@@ -923,6 +930,7 @@ internal fun ExpandedPlayer(
         onCollapse = onCollapse,
         paneFullscreen = paneFullscreen,
         onTogglePane = onTogglePane,
+        queueBeside = queueBeside,
         onOpenArtist = onOpenArtist,
         isLiked = isLiked,
         // One saved state drives the heart and YouTube sync.
