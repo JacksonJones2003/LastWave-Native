@@ -876,6 +876,14 @@ fun PlayerHost(
                 }
             }
             
+            // Half folded (tabletop) with a song loaded: cover above the hinge, controls below.
+            // Closing it lasts until the next fold.
+            val hingeTop = rememberTabletopHingeTop()
+            var tabletopClosed by remember(hingeTop != null) { mutableStateOf(false) }
+            if (hingeTop != null && state.current != null && !tabletopClosed) {
+                TabletopPlayer(viewModel, hingeTop, onClose = { tabletopClosed = true })
+            }
+
             playlistTrack?.let { track ->
                 AddToPlaylistDialogHost(
                     viewModel = viewModel,
