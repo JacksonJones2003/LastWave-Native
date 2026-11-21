@@ -334,6 +334,8 @@ internal fun QueuePanel(
     player: MusicPlayer,
     bottomPadding: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
+    /** One slim "Up next" line, leaving the height to the songs (a landscape phone). */
+    compactHeader: Boolean = false,
 ) {
     // The rows take their colours from the playing song, like the player backdrop they sit on,
     // instead of the app theme's pale surfaces.
@@ -351,7 +353,7 @@ internal fun QueuePanel(
         )
     }
     MaterialTheme(colorScheme = artworkScheme) {
-        QueuePanelContent(state, player, bottomPadding, modifier)
+        QueuePanelContent(state, player, bottomPadding, modifier, compactHeader)
     }
 }
 
@@ -361,6 +363,7 @@ private fun QueuePanelContent(
     player: MusicPlayer,
     bottomPadding: androidx.compose.ui.unit.Dp,
     modifier: Modifier,
+    compactHeader: Boolean,
 ) {
     val isQueueLocked = isQueueLockedState
     val listState = rememberLazyListState()
@@ -455,24 +458,24 @@ private fun QueuePanelContent(
     Box(modifier = modifier) {
         Column(Modifier.fillMaxSize()) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 12.dp, horizontal = 4.dp),
+            Modifier.fillMaxWidth().padding(vertical = if (compactHeader) 2.dp else 12.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
                     "Up next",
-                    style = MaterialTheme.typography.titleLarge,
+                    style = if (compactHeader) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
                 )
-                if (state.queue.isNotEmpty()) {
+                if (!compactHeader && state.queue.isNotEmpty()) {
                     Text(
                         "${state.currentIndex.coerceAtLeast(0) + 1} playing",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.70f),
                     )
                 }
-                if (state.isEndlessQueue) {
+                if (!compactHeader && state.isEndlessQueue) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp),

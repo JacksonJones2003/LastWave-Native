@@ -439,6 +439,8 @@ internal fun FullPlayer(
     // This full bleed is the single-column (portrait) hero. The two-column
     // landscape layout draws its own full-bleed art pane on the left
     // (LandscapeArtworkPane), so the portrait hero must not paint behind it.
+    // A landscape phone beside the queue: little height, so slim chrome and swipe-down to close.
+    val compactLandscape = queueBeside && paneFullscreen == null
     // Beside the queue the art is a sleeve card in its column, not a hero behind both columns.
     val fullBleedBlocked = isTabletLandscape || queueBeside
     val showFullBleed = canvasFullBleedEnabled && !isVideoActive && !fullBleedBlocked
@@ -1176,6 +1178,7 @@ internal fun FullPlayer(
                     state,
                     player,
                     bottomPadding = bottomInset,
+                    compactHeader = compactLandscape,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .fillMaxWidth(0.5f)
@@ -1220,14 +1223,24 @@ internal fun FullPlayer(
                         Box(
                             Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
+                                .height(if (compactLandscape) 44.dp else 52.dp)
                                 .padding(horizontal = if (isTabletLandscape) 32.dp else 20.dp)
                                 .playerVerticalSwipe(enabled = currentTab == FullPlayerTab.QUEUE),
                         ) {
                             // FullPlayer sits on a dark blurred-artwork scrim in both light and
                             // dark mode, so foreground must use the white overlay palette â€”
                             // never MaterialTheme onSurface (near-black in light mode).
-                            Row(
+                            val onNowPlaying = currentTab == FullPlayerTab.NOW_PLAYING
+                            if (compactLandscape && onNowPlaying) {
+                                // The handle says swipe down to close; no room for a button row.
+                                Box(
+                                    Modifier
+                                        .align(Alignment.Center)
+                                        .size(width = 36.dp, height = 4.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.5f)),
+                                )
+                            } else Row(
                                 modifier = Modifier.align(Alignment.CenterStart),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
@@ -1239,7 +1252,6 @@ internal fun FullPlayer(
                                         onClick = onTogglePane,
                                     )
                                 }
-                                val onNowPlaying = currentTab == FullPlayerTab.NOW_PLAYING
                                 PlayerHeaderButton(
                                     icon = if (onNowPlaying) Icons.Filled.ExpandMore else Icons.Filled.ArrowBack,
                                     contentDescription = if (onNowPlaying) "Minimize player" else "Back to player",
@@ -1266,7 +1278,7 @@ internal fun FullPlayer(
                                 Modifier
                                     .align(Alignment.Center)
                                     .padding(horizontal = 96.dp)
-                                    .graphicsLayer { alpha = headerLabelAlpha },
+                                    .graphicsLayer { alpha = if (compactLandscape) 0f else headerLabelAlpha },
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
                                 Text(
@@ -1584,7 +1596,13 @@ internal fun FullPlayer(
                                             // Beside the queue the column is short (landscape): the cover
                                             // shrinks to keep room around it instead of meeting the title.
                                             // The top padding puts the cover level with the queue's first song.
-                                            .then(if (queueBeside) Modifier.padding(top = 28.dp, bottom = 24.dp) else Modifier)
+                                            .then(
+                                                when {
+                                                    compactLandscape -> Modifier.padding(bottom = 8.dp)
+                                                    queueBeside -> Modifier.padding(top = 28.dp, bottom = 24.dp)
+                                                    else -> Modifier
+                                                },
+                                            )
                                             .onGloballyPositioned { coordinates ->
                                                 val rootPos = coordinates.positionInRoot()
                                                 val bottom = rootPos.y + coordinates.size.height
