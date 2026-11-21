@@ -43,6 +43,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.lastwave.app.ui.theme.LocalIsDarkTheme
+import com.lastwave.app.ui.theme.rememberLayerBackdrop
+import com.lastwave.app.ui.theme.liquidGlassSource
+import com.lastwave.app.ui.theme.isLiquidGlassBackdropSupported
+import com.lastwave.app.ui.theme.LocalLiquidGlassOverlayBackdrop
+import com.lastwave.app.ui.theme.LocalLiquidGlassBackdrop
+import com.lastwave.app.ui.theme.LocalLiquidGlass
+import androidx.compose.foundation.layout.widthIn
 
 /**
  * The hinge's top edge in window pixels while the screen is half folded across its width
@@ -74,21 +81,29 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
     val backdrop = Brush.verticalGradient(
         listOf(androidx.compose.ui.graphics.lerp(tint, Color.White, 0.12f), tint, androidx.compose.ui.graphics.lerp(tint, Color.Black, 0.2f)),
     )
-    CompositionLocalProvider(LocalIsDarkTheme provides true) {
-        // Swiping down anywhere closes it, as the handle on top suggests.
-        val closeDistance = with(LocalDensity.current) { 96.dp.toPx() }
-        Column(
-            Modifier
-                .fillMaxSize()
-                .background(backdrop)
-                .pointerInput(Unit) {
-                    var dragged = 0f
-                    detectVerticalDragGestures(
-                        onDragStart = { dragged = 0f },
-                        onDragEnd = { if (dragged > closeDistance) onClose() },
-                    ) { _, dy -> dragged += dy }
-                },
-        ) {
+    // Its glass controls refract this backdrop, as in the full player, not the app hidden behind it.
+    val glass = LocalLiquidGlass.current && isLiquidGlassBackdropSupported()
+    val glassSource = rememberLayerBackdrop()
+    // Swiping down anywhere closes it, as the handle on top suggests.
+    val closeDistance = with(LocalDensity.current) { 96.dp.toPx() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                var dragged = 0f
+                detectVerticalDragGestures(
+                    onDragStart = { dragged = 0f },
+                    onDragEnd = { if (dragged > closeDistance) onClose() },
+                ) { _, dy -> dragged += dy }
+            },
+    ) {
+    Box(Modifier.matchParentSize().liquidGlassSource(if (glass) glassSource else null).background(backdrop))
+    CompositionLocalProvider(
+        LocalIsDarkTheme provides true,
+        LocalLiquidGlassBackdrop provides if (glass) glassSource else null,
+        LocalLiquidGlassOverlayBackdrop provides if (glass) glassSource else null,
+    ) {
+        Column(Modifier.fillMaxSize()) {
             // The standing half, down to the hinge.
             Column(Modifier.fillMaxWidth().height(with(LocalDensity.current) { hingeTopPx.toDp() })) {
             Box(
@@ -132,6 +147,9 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
             }
             Column(
                 Modifier
+                    .align(Alignment.CenterHorizontally)
+                    // Phone-width controls, like the full player's, not stretched across the fold.
+                    .widthIn(max = 560.dp)
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(horizontal = 32.dp, vertical = 12.dp),
@@ -149,5 +167,6 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
                 PlayerUtilityControls(state, player, isTranslucent = true)
             }
         }
+    }
     }
 }
