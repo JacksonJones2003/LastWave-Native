@@ -139,6 +139,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.FastForward
@@ -443,6 +444,9 @@ internal fun FullPlayer(
     // (LandscapeArtworkPane), so the portrait hero must not paint behind it.
     // A landscape phone beside the queue: little height, so slim chrome and swipe-down to close.
     val compactLandscape = queueBeside && paneFullscreen == null
+    // Beside the player, the end column shows lyrics instead of the queue.
+    var lyricsBeside by remember { mutableStateOf(false) }
+    LaunchedEffect(queueBeside) { if (!queueBeside) lyricsBeside = false }
     // Beside the queue the art is a sleeve card in its column, not a hero behind both columns.
     val fullBleedBlocked = isTabletLandscape || queueBeside
     val showFullBleed = canvasFullBleedEnabled && !isVideoActive && !fullBleedBlocked
@@ -1174,22 +1178,87 @@ internal fun FullPlayer(
             val showError = state.error != null && !lyricsFullscreen
             val bottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
             val tabBottomInset = if (showError) 0.dp else bottomInset
-            if (queueBeside) {
-                // The queue as the end column, over the same artwork backdrop; it reorders by its handles.
-                QueuePanel(
-                    state,
-                    player,
-                    bottomPadding = bottomInset,
-                    compactHeader = compactLandscape,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .fillMaxWidth(0.5f)
-                        .fillMaxHeight()
-                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
-                        // From the top: its "Up next" header then sits beside the player's header,
-                        // and the first song level with the cover.
-                        .padding(start = 8.dp, end = 16.dp),
+            // The lyrics view of the lyrics tab, also shown beside the player in place of the queue.
+            val lyricsPanel: @Composable (Modifier, Boolean, () -> Unit) -> Unit = { modifier, isFullscreen, onToggleFullscreen ->
+                ModernLyricsPanel(
+                    state = state,
+                    player = player,
+                    lyricsState = lyricsState,
+                    lyricsProviderStatuses = lyricsProviderStatuses,
+                    onProbeLyricsProviders = onProbeLyricsProviders,
+                    progressState = progressState,
+                    seekbarStyle = seekbarStyle,
+                    wavySeekbarEnabled = wavySeekbarEnabled,
+                    lyricsStyle = lyricsStyle,
+                    onLyricsStyleChange = onSetLyricsStyle ?: {},
+                    lyricsOffsetMs = lyricsOffsetMs,
+                    lyricsFontScale = lyricsFontScale,
+                    onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
+                    controlsAutoHideSeconds = lyricsButtonsAutoHideSeconds,
+                    controlsVisibleState = lyricsControlsVisible,
+                    onControlsVisibleChange = { lyricsControlsVisible = it },
+                    translationLanguage = translationLanguage,
+                    onRetry = onRetryLyrics,
+                    onSelectLyricsProvider = onSelectLyricsProvider,
+                    onTryAnotherLyricsSource = onTryAnotherLyricsSource,
+                    onToggleFullscreen = onToggleFullscreen,
+                    isFullscreen = isFullscreen,
+                    onOpenLyricsOffset = { showLyricsOffsetDialog = true },
+                    primaryColor = ambientColor,
+                    secondaryColor = ambientCompanion,
+                    tertiaryColor = ambientDeep,
+                    resolvedArtworkUrl = resolvedAmbientUrl,
+                    modifier = modifier,
                 )
+            }
+            if (queueBeside) {
+                val columnModifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .fillMaxWidth(0.5f)
+                    .fillMaxHeight()
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
+                    // From the top: its "Up next" header then sits beside the player's header,
+                    // and the first song level with the cover.
+                    .padding(start = 8.dp, end = 16.dp)
+                if (lyricsBeside) {
+                    // Line-synced lyrics need the fast playhead, as on the lyrics tab.
+                    DisposableEffect(Unit) {
+                        com.lastwave.app.playback.PlaybackUiDemand.needsHighFrequency = true
+                        onDispose { com.lastwave.app.playback.PlaybackUiDemand.needsHighFrequency = false }
+                    }
+                    Column(columnModifier) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = if (compactLandscape) 2.dp else 12.dp, horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Lyrics",
+                                style = if (compactLandscape) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                modifier = Modifier.weight(1f),
+                            )
+                            PlayerHeaderButton(
+                                icon = Icons.AutoMirrored.Filled.QueueMusic,
+                                contentDescription = "Show queue",
+                                isThemeLight = false,
+                                onClick = { lyricsBeside = false },
+                                iconSize = 20.dp,
+                            )
+                        }
+                        lyricsPanel(Modifier.weight(1f).fillMaxWidth(), false) { lyricsBeside = false }
+                    }
+                } else {
+                    // The queue as the end column, over the same artwork backdrop; it reorders by its handles.
+                    QueuePanel(
+                        state,
+                        player,
+                        bottomPadding = bottomInset,
+                        compactHeader = compactLandscape,
+                        onShowLyrics = { lyricsBeside = true },
+                        modifier = columnModifier,
+                    )
+                }
             }
             if (compactLandscape) {
                 CompactLandscapeCover(
@@ -1474,45 +1543,8 @@ internal fun FullPlayer(
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
-                                ModernLyricsPanel(
-                                    state = state,
-                                    player = player,
-                                    lyricsState = lyricsState,
-                                    lyricsProviderStatuses = lyricsProviderStatuses,
-                                    onProbeLyricsProviders = onProbeLyricsProviders,
-                                    progressState = progressState,
-                                    seekbarStyle = seekbarStyle,
-                                    wavySeekbarEnabled = wavySeekbarEnabled,
-                                    lyricsStyle = lyricsStyle,
-                                    onLyricsStyleChange = onSetLyricsStyle ?: {},
-                                    lyricsOffsetMs = lyricsOffsetMs,
-                                    lyricsFontScale = lyricsFontScale,
-                                    onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
-                                    controlsAutoHideSeconds = lyricsButtonsAutoHideSeconds,
-                                    controlsVisibleState = lyricsControlsVisible,
-                                    onControlsVisibleChange = { lyricsControlsVisible = it },
-                                    translationLanguage = translationLanguage,
-                                    onRetry = onRetryLyrics,
-                                    onSelectLyricsProvider = onSelectLyricsProvider,
-                                    onTryAnotherLyricsSource = onTryAnotherLyricsSource,
-                                    // Full Screen cycles: Player Lyrics -> lyrics -> full screen -> back
-                                    // to Player Lyrics. The two-column landscape has no Player Lyrics,
-                                    // so it lands on its Now Playing.
-                                    onToggleFullscreen = {
-                                        if (lyricsFullscreen) {
-                                            if (!isTabletLandscape) onPlayerLyricsChange(true)
-                                            onTabChange(FullPlayerTab.NOW_PLAYING)
-                                        } else {
-                                            lyricsFullscreen = true
-                                        }
-                                    },
-                                    isFullscreen = lyricsFullscreen,
-                                    onOpenLyricsOffset = { showLyricsOffsetDialog = true },
-                                    primaryColor = ambientColor,
-                                    secondaryColor = ambientCompanion,
-                                    tertiaryColor = ambientDeep,
-                                    resolvedArtworkUrl = resolvedAmbientUrl,
-                                    modifier = if (landscapeSplit) {
+                                lyricsPanel(
+                                    if (landscapeSplit) {
                                         Modifier
                                             .weight(1.15f)
                                             .fillMaxHeight()
@@ -1520,6 +1552,18 @@ internal fun FullPlayer(
                                         Modifier
                                             .fillMaxSize()
                                             .adaptiveContentWidth(maxWidth = if (isTabletLandscape) 960.dp else 720.dp)
+                                    },
+                                    lyricsFullscreen,
+                                    // Full Screen cycles: Player Lyrics -> lyrics -> full screen -> back
+                                    // to Player Lyrics. The two-column landscape has no Player Lyrics,
+                                    // so it lands on its Now Playing.
+                                    {
+                                        if (lyricsFullscreen) {
+                                            if (!isTabletLandscape) onPlayerLyricsChange(true)
+                                            onTabChange(FullPlayerTab.NOW_PLAYING)
+                                        } else {
+                                            lyricsFullscreen = true
+                                        }
                                     },
                                 )
                                 }

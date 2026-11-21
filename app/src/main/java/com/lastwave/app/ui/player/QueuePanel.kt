@@ -336,6 +336,8 @@ internal fun QueuePanel(
     modifier: Modifier = Modifier,
     /** One slim "Up next" line, leaving the height to the songs (a landscape phone). */
     compactHeader: Boolean = false,
+    /** Beside the player: swaps this column for the lyrics. */
+    onShowLyrics: (() -> Unit)? = null,
 ) {
     // The rows take their colours from the playing song, like the player backdrop they sit on,
     // instead of the app theme's pale surfaces.
@@ -353,7 +355,7 @@ internal fun QueuePanel(
         )
     }
     MaterialTheme(colorScheme = artworkScheme) {
-        QueuePanelContent(state, player, bottomPadding, modifier, compactHeader)
+        QueuePanelContent(state, player, bottomPadding, modifier, compactHeader, onShowLyrics)
     }
 }
 
@@ -364,6 +366,7 @@ private fun QueuePanelContent(
     bottomPadding: androidx.compose.ui.unit.Dp,
     modifier: Modifier,
     compactHeader: Boolean,
+    onShowLyrics: (() -> Unit)?,
 ) {
     val isQueueLocked = isQueueLockedState
     val listState = rememberLazyListState()
@@ -499,6 +502,23 @@ private fun QueuePanelContent(
                 androidx.compose.material3.LocalMinimumInteractiveComponentSize provides
                     if (compactHeader) 0.dp else androidx.compose.material3.LocalMinimumInteractiveComponentSize.current,
             ) {
+                if (onShowLyrics != null) {
+                    IconButton(
+                        onClick = onShowLyrics,
+                        modifier = Modifier
+                            .size(if (compactHeader) 28.dp else 44.dp)
+                            .clip(RoundedCornerShape(if (compactHeader) 10.dp else 16.dp))
+                            .background(Color.White.copy(alpha = 0.14f)),
+                    ) {
+                        Icon(
+                            Icons.Filled.FormatQuote,
+                            "Show lyrics",
+                            tint = Color.White.copy(alpha = 0.90f),
+                            modifier = Modifier.size(if (compactHeader) 16.dp else 24.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
                 IconButton(
                     onClick = {
                         userScrollHoldUntil = 0L
