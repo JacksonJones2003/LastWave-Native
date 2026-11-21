@@ -2211,7 +2211,7 @@ internal fun FullPlayer(
 
 /** Round glass button in the player header, in the header's overlay palette. */
 @Composable
-private fun PlayerHeaderButton(
+internal fun PlayerHeaderButton(
     icon: ImageVector,
     contentDescription: String,
     isThemeLight: Boolean,
