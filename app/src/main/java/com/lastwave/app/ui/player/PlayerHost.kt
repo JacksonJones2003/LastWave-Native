@@ -587,8 +587,8 @@ fun PlayerHost(
         LocalLiquidGlassBackdrop provides (if (miniGlass) miniBackdrop else null),
     ) {
         val layoutDirection = LocalLayoutDirection.current
-        // Docked, the app and the player are cards; the window between them is a shade off the page.
-        val gapColor = MaterialTheme.colorScheme.surfaceContainerHighest
+        // Docked, the app and the player are cards on black.
+        val gapColor = Color.Black
         // Read in layout and draw only, so status bar changes never recompose the host.
         val statusBars = WindowInsets.statusBars
         Box(
