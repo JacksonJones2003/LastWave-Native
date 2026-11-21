@@ -1181,8 +1181,9 @@ internal fun FullPlayer(
                         .fillMaxWidth(0.5f)
                         .fillMaxHeight()
                         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.End))
-                        // Starts level with the cover, below the player's 52dp header and its 6dp gap.
-                        .padding(start = 8.dp, end = 16.dp, top = 58.dp),
+                        // From the top: its "Up next" header then sits beside the player's header,
+                        // and the first song level with the cover.
+                        .padding(start = 8.dp, end = 16.dp),
                 )
             }
             Column(
@@ -1582,7 +1583,8 @@ internal fun FullPlayer(
                                             .weight(1f)
                                             // Beside the queue the column is short (landscape): the cover
                                             // shrinks to keep room around it instead of meeting the title.
-                                            .then(if (queueBeside) Modifier.padding(top = 8.dp, bottom = 24.dp) else Modifier)
+                                            // The top padding puts the cover level with the queue's first song.
+                                            .then(if (queueBeside) Modifier.padding(top = 28.dp, bottom = 24.dp) else Modifier)
                                             .onGloballyPositioned { coordinates ->
                                                 val rootPos = coordinates.positionInRoot()
                                                 val bottom = rootPos.y + coordinates.size.height
