@@ -1580,6 +1580,9 @@ internal fun FullPlayer(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .weight(1f)
+                                            // Beside the queue the column is short (landscape): the cover
+                                            // shrinks to keep room around it instead of meeting the title.
+                                            .then(if (queueBeside) Modifier.padding(top = 8.dp, bottom = 24.dp) else Modifier)
                                             .onGloballyPositioned { coordinates ->
                                                 val rootPos = coordinates.positionInRoot()
                                                 val bottom = rootPos.y + coordinates.size.height
