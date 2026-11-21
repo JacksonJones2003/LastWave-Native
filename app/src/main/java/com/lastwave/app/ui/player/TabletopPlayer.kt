@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,7 +69,7 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
     BackHandler(onBack = onClose)
     val tint = rememberArtworkTint(track.artworkUrl)
     val backdrop = Brush.verticalGradient(
-        listOf(androidx.compose.ui.graphics.lerp(tint, Color.White, 0.12f), tint, androidx.compose.ui.graphics.lerp(tint, Color.Black, 0.6f)),
+        listOf(androidx.compose.ui.graphics.lerp(tint, Color.White, 0.12f), tint, androidx.compose.ui.graphics.lerp(tint, Color.Black, 0.2f)),
     )
     CompositionLocalProvider(LocalIsDarkTheme provides true) {
         Column(Modifier.fillMaxSize().background(backdrop)) {
@@ -79,31 +81,32 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
                     .padding(start = 24.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                PlayerArtwork(
-                    track = track,
-                    modifier = Modifier.fillMaxHeight().aspectRatio(1f),
-                    corner = 16.dp,
-                )
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    PlayerHeaderButton(Icons.Filled.Close, "Close", isThemeLight = false, onClick = onClose)
-                    Spacer(Modifier.weight(1f))
+                // The cover with the song under it on the start half; the queue takes the end half.
+                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.weight(1f).aspectRatio(1f)) {
+                        PlayerArtwork(track = track, modifier = Modifier.fillMaxSize(), corner = 16.dp)
+                        Box(Modifier.align(Alignment.TopStart).padding(8.dp)) {
+                            PlayerHeaderButton(Icons.Filled.Close, "Close", isThemeLight = false, onClick = onClose)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
                     Text(
                         track.title,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         track.artist,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         color = Color.White.copy(alpha = 0.7f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                QueuePanel(state, player, modifier = Modifier.weight(1.3f).fillMaxHeight())
+                QueuePanel(state, player, modifier = Modifier.weight(1f).fillMaxHeight())
             }
             Column(
                 Modifier
