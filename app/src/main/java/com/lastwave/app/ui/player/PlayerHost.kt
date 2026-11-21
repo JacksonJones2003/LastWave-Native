@@ -53,6 +53,7 @@ import androidx.compose.ui.util.lerp
 import com.lastwave.app.ui.common.WindowPane
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.displayCutout
 import kotlin.math.cos
 import kotlin.math.sin
@@ -883,10 +884,26 @@ fun PlayerHost(
             if (hingeTop != null && state.current != null) {
                 if (tabletopClosed) {
                     // Still half folded after closing it: one tap brings it back.
-                    TabletopReopenButton(
-                        onClick = { tabletopClosed = false },
-                        modifier = Modifier.align(Alignment.TopCenter),
-                    )
+                    // Just above the bottom bar on the app's side, clear of headers and the docked player.
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (split == null) {
+                                    Modifier
+                                } else {
+                                    Modifier.appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
+                                },
+                            ),
+                    ) {
+                        TabletopReopenButton(
+                            onClick = { tabletopClosed = false },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .windowInsetsPadding(WindowInsets.navigationBars)
+                                .padding(bottom = if (hasBottomNavigation) 92.dp else 16.dp),
+                        )
+                    }
                 } else {
                     TabletopPlayer(viewModel, hingeTop, onClose = { tabletopClosed = true })
                 }

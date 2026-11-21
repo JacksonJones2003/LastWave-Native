@@ -204,7 +204,7 @@ internal fun TabletopReopenButton(onClick: () -> Unit, modifier: Modifier = Modi
         color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         shadowElevation = 6.dp,
-        modifier = modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = 8.dp),
+        modifier = modifier,
     ) {
         Row(
             Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
