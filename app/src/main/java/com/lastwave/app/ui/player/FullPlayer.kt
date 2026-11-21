@@ -1262,6 +1262,8 @@ internal fun FullPlayer(
                     canvas = if (canvasEnabled) activeCanvas else null,
                     seekbarStyle = seekbarStyle,
                     wavySeekbarEnabled = wavySeekbarEnabled,
+                    // The main seek bar's artwork colours.
+                    seekbarColors = Triple(ambientColor, ambientCompanion, ambientDeep),
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(0.5f)
@@ -2364,6 +2366,7 @@ private fun CompactLandscapeCover(
     canvas: com.lastwave.app.data.canvas.CanvasArtwork?,
     seekbarStyle: SeekbarStyle,
     wavySeekbarEnabled: Boolean,
+    seekbarColors: Triple<Color, Color, Color>,
     modifier: Modifier,
 ) {
     val offsetX = remember(track.videoId, track.title) { Animatable(0f) }
@@ -2465,6 +2468,7 @@ private fun CompactLandscapeCover(
                 isPlaying = isPlaying,
                 seekbarStyle = seekbarStyle,
                 wavySeekbarEnabled = wavySeekbarEnabled,
+                colors = seekbarColors,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -2485,6 +2489,7 @@ private fun CoverProgress(
     isPlaying: Boolean,
     seekbarStyle: SeekbarStyle,
     wavySeekbarEnabled: Boolean,
+    colors: Triple<Color, Color, Color>,
     modifier: Modifier,
 ) {
     val progress by progressState.collectAsStateWithLifecycle()
@@ -2500,9 +2505,9 @@ private fun CoverProgress(
         valueRange = 0f..1f,
         enabled = durationMs > 0,
         interactionSource = remember { MutableInteractionSource() },
-        primaryColor = Color.White,
-        secondaryColor = Color.White.copy(alpha = 0.7f),
-        tertiaryColor = Color.White.copy(alpha = 0.5f),
+        primaryColor = colors.first,
+        secondaryColor = colors.second,
+        tertiaryColor = colors.third,
         seekbarStyle = seekbarStyle,
         wavy = wavySeekbarEnabled,
         isPlaying = isPlaying,
