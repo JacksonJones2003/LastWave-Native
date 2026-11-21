@@ -45,6 +45,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.geometry.Rect
@@ -881,32 +882,37 @@ fun PlayerHost(
             // Closing it lasts until the next fold.
             val hingeTop = rememberTabletopHingeTop()
             var tabletopClosed by remember(hingeTop != null) { mutableStateOf(false) }
-            if (hingeTop != null && state.current != null) {
-                if (tabletopClosed) {
-                    // Still half folded after closing it: one tap brings it back.
+            if (hingeTop != null && state.current != null && tabletopClosed) {
                     // Just above the bottom bar on the app's side, clear of headers and the docked player.
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (split == null) {
-                                    Modifier
-                                } else {
-                                    Modifier.appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
-                                },
-                            ),
-                    ) {
-                        TabletopReopenButton(
-                            onClick = { tabletopClosed = false },
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .windowInsetsPadding(WindowInsets.navigationBars)
-                                .padding(bottom = if (hasBottomNavigation) 92.dp else 16.dp),
-                        )
-                    }
-                } else {
-                    TabletopPlayer(viewModel, hingeTop, onClose = { tabletopClosed = true })
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .then(
+                            if (split == null) {
+                                Modifier
+                            } else {
+                                Modifier.appColumn(split.sideWidth) { if (miniPlayerShown || appDocked) 1f else 0f }
+                            },
+                        ),
+                ) {
+                    TabletopReopenButton(
+                        onClick = { tabletopClosed = false },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .windowInsetsPadding(WindowInsets.navigationBars)
+                            .padding(bottom = if (hasBottomNavigation) 92.dp else 16.dp),
+                    )
                 }
+            }
+            // The last hinge position, so the player keeps its layout while it swoops away on unfold.
+            val tabletopHinge = remember { mutableFloatStateOf(0f) }
+            if (hingeTop != null) tabletopHinge.floatValue = hingeTop
+            AnimatedVisibility(
+                visible = hingeTop != null && state.current != null && !tabletopClosed,
+                enter = slideInVertically(TabletopSwoopSpec) { it } + fadeIn(),
+                exit = slideOutVertically(TabletopSwoopSpec) { it } + fadeOut(),
+            ) {
+                TabletopPlayer(viewModel, tabletopHinge.floatValue, onClose = { tabletopClosed = true })
             }
 
             playlistTrack?.let { track ->
@@ -1079,6 +1085,13 @@ internal val PlayerSheetOpenSpec = spring<Float>(
     stiffness = 110f,
     visibilityThreshold = 0.001f,
 )
+/** Folding into or out of tabletop: the player swoops up from (or down to) the flat half. */
+private val TabletopSwoopSpec = spring(
+    dampingRatio = 0.86f,
+    stiffness = 180f,
+    visibilityThreshold = androidx.compose.ui.unit.IntOffset.VisibilityThreshold,
+)
+
 internal val PlayerSheetCloseSpec = spring<Float>(
     dampingRatio = 0.92f,
     stiffness = 95f,
