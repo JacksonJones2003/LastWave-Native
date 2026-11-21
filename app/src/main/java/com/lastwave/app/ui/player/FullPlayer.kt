@@ -1267,6 +1267,8 @@ internal fun FullPlayer(
                     player = player,
                     progressState = progressState,
                     canvas = if (canvasEnabled) activeCanvas else null,
+                    seekbarStyle = seekbarStyle,
+                    wavySeekbarEnabled = wavySeekbarEnabled,
                     modifier = Modifier
                         .fillMaxHeight()
                         .fillMaxWidth(0.5f)
@@ -2342,6 +2344,8 @@ private fun CompactLandscapeCover(
     player: MusicPlayer,
     progressState: StateFlow<PlaybackProgressState>,
     canvas: com.lastwave.app.data.canvas.CanvasArtwork?,
+    seekbarStyle: SeekbarStyle,
+    wavySeekbarEnabled: Boolean,
     modifier: Modifier,
 ) {
     val offsetX = remember(track.videoId, track.title) { Animatable(0f) }
@@ -2437,15 +2441,53 @@ private fun CompactLandscapeCover(
                     .clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.6f)),
             )
-            MiniPlayerProgress(
-                progressState,
-                trackColor = Color.White.copy(alpha = 0.3f),
-                barColor = Color.White,
+            CoverProgress(
+                progressState = progressState,
+                player = player,
+                isPlaying = isPlaying,
+                seekbarStyle = seekbarStyle,
+                wavySeekbarEnabled = wavySeekbarEnabled,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .height(3.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
             )
         }
     }
+}
+
+/**
+ * The player's own progress slider, in the seek bar style chosen in settings, without time labels.
+ * Kept in its own scope so the playhead ticks recompose only it, not the cover around it.
+ */
+@Composable
+private fun CoverProgress(
+    progressState: StateFlow<PlaybackProgressState>,
+    player: MusicPlayer,
+    isPlaying: Boolean,
+    seekbarStyle: SeekbarStyle,
+    wavySeekbarEnabled: Boolean,
+    modifier: Modifier,
+) {
+    val progress by progressState.collectAsStateWithLifecycle()
+    var scrubbing by remember { mutableStateOf<Float?>(null) }
+    val durationMs = progress.durationMs
+    PlayerProgressSlider(
+        value = scrubbing ?: if (durationMs > 0) (progress.positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f,
+        onValueChange = { scrubbing = it },
+        onValueChangeFinished = {
+            scrubbing?.let { player.seekTo((it * durationMs).toLong()) }
+            scrubbing = null
+        },
+        valueRange = 0f..1f,
+        enabled = durationMs > 0,
+        interactionSource = remember { MutableInteractionSource() },
+        primaryColor = Color.White,
+        secondaryColor = Color.White.copy(alpha = 0.7f),
+        tertiaryColor = Color.White.copy(alpha = 0.5f),
+        seekbarStyle = seekbarStyle,
+        wavy = wavySeekbarEnabled,
+        isPlaying = isPlaying,
+        modifier = modifier,
+    )
 }
