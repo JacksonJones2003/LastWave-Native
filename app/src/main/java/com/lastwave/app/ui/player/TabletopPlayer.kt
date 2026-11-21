@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
@@ -20,8 +25,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,23 +75,41 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
         listOf(androidx.compose.ui.graphics.lerp(tint, Color.White, 0.12f), tint, androidx.compose.ui.graphics.lerp(tint, Color.Black, 0.2f)),
     )
     CompositionLocalProvider(LocalIsDarkTheme provides true) {
-        Column(Modifier.fillMaxSize().background(backdrop)) {
+        // Swiping down anywhere closes it, as the handle on top suggests.
+        val closeDistance = with(LocalDensity.current) { 96.dp.toPx() }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(backdrop)
+                .pointerInput(Unit) {
+                    var dragged = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { dragged = 0f },
+                        onDragEnd = { if (dragged > closeDistance) onClose() },
+                    ) { _, dy -> dragged += dy }
+                },
+        ) {
+            // The standing half, down to the hinge.
+            Column(Modifier.fillMaxWidth().height(with(LocalDensity.current) { hingeTopPx.toDp() })) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(top = 8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.5f)))
+            }
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .height(with(LocalDensity.current) { hingeTopPx.toDp() })
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(start = 24.dp, end = 16.dp, top = 12.dp, bottom = 16.dp),
+                    .weight(1f)
+                    .padding(start = 24.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 // The cover with the song under it on the start half; the queue takes the end half.
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.weight(1f).aspectRatio(1f)) {
-                        PlayerArtwork(track = track, modifier = Modifier.fillMaxSize(), corner = 16.dp)
-                        Box(Modifier.align(Alignment.TopStart).padding(8.dp)) {
-                            PlayerHeaderButton(Icons.Filled.Close, "Close", isThemeLight = false, onClick = onClose)
-                        }
-                    }
+                    PlayerArtwork(track = track, modifier = Modifier.weight(1f).aspectRatio(1f), corner = 16.dp)
                     Spacer(Modifier.height(12.dp))
                     Text(
                         track.title,
@@ -107,6 +128,7 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
                     )
                 }
                 QueuePanel(state, player, modifier = Modifier.weight(1f).fillMaxHeight())
+            }
             }
             Column(
                 Modifier
