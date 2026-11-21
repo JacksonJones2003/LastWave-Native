@@ -1584,7 +1584,7 @@ internal fun FullPlayer(
                                             // Beside the queue the column is short (landscape): the cover
                                             // shrinks to keep room around it instead of meeting the title.
                                             // The top padding puts the cover level with the queue's first song.
-                                            .then(if (queueBeside) Modifier.padding(top = 28.dp, bottom = 24.dp) else Modifier)
+                                            .then(if (queueBeside) Modifier.padding(top = 14.dp, bottom = 24.dp) else Modifier)
                                             .onGloballyPositioned { coordinates ->
                                                 val rootPos = coordinates.positionInRoot()
                                                 val bottom = rootPos.y + coordinates.size.height
