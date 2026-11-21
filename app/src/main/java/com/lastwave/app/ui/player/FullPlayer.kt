@@ -1205,13 +1205,27 @@ internal fun FullPlayer(
                                 color = Color.White,
                                 modifier = Modifier.weight(1f),
                             )
-                            PlayerHeaderButton(
-                                icon = Icons.AutoMirrored.Filled.QueueMusic,
-                                contentDescription = "Show queue",
-                                isThemeLight = false,
-                                onClick = { lyricsBeside = false },
-                                iconSize = 20.dp,
-                            )
+                            // Sized like the queue header's buttons it swaps with.
+                            val slim = compactLandscape
+                            androidx.compose.runtime.CompositionLocalProvider(
+                                androidx.compose.material3.LocalMinimumInteractiveComponentSize provides
+                                    if (slim) 0.dp else androidx.compose.material3.LocalMinimumInteractiveComponentSize.current,
+                            ) {
+                                IconButton(
+                                    onClick = { lyricsBeside = false },
+                                    modifier = Modifier
+                                        .size(if (slim) 28.dp else 44.dp)
+                                        .clip(RoundedCornerShape(if (slim) 10.dp else 16.dp))
+                                        .background(Color.White.copy(alpha = 0.14f)),
+                                ) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.QueueMusic,
+                                        "Show queue",
+                                        tint = Color.White.copy(alpha = 0.90f),
+                                        modifier = Modifier.size(if (slim) 16.dp else 24.dp),
+                                    )
+                                }
+                            }
                         }
                         PlayerInlineLyrics(
                             state = state,

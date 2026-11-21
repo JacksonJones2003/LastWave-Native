@@ -316,14 +316,16 @@ fun WaveformSlider(
             }
 
             // --- 3. Circular Thumb Indicator ---
-            val thumbOuterRadius = 10.dp.toPx()
-            val thumbInnerRadius = 6.5.dp.toPx()
+            // Scaled with the bar, so a slim bar (over cover art) gets a small knob.
+            val knobScale = (trackHeight / 44.dp).coerceIn(0.4f, 1f)
+            val thumbOuterRadius = 10.dp.toPx() * knobScale
+            val thumbInnerRadius = 6.5.dp.toPx() * knobScale
             val thumbY = centerY
 
             // Soft ambient glow halo
             drawCircle(
                 color = knobCoreColor.copy(alpha = 0.35f),
-                radius = thumbOuterRadius + 3.dp.toPx(),
+                radius = thumbOuterRadius + 3.dp.toPx() * knobScale,
                 center = Offset(splitX, thumbY)
             )
 
