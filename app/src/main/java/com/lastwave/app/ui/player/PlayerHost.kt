@@ -880,8 +880,16 @@ fun PlayerHost(
             // Closing it lasts until the next fold.
             val hingeTop = rememberTabletopHingeTop()
             var tabletopClosed by remember(hingeTop != null) { mutableStateOf(false) }
-            if (hingeTop != null && state.current != null && !tabletopClosed) {
-                TabletopPlayer(viewModel, hingeTop, onClose = { tabletopClosed = true })
+            if (hingeTop != null && state.current != null) {
+                if (tabletopClosed) {
+                    // Still half folded after closing it: one tap brings it back.
+                    TabletopReopenButton(
+                        onClick = { tabletopClosed = false },
+                        modifier = Modifier.align(Alignment.TopCenter),
+                    )
+                } else {
+                    TabletopPlayer(viewModel, hingeTop, onClose = { tabletopClosed = true })
+                }
             }
 
             playlistTrack?.let { track ->

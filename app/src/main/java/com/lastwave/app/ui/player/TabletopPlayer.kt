@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.material.icons.filled.MusicNote
 import com.lastwave.app.ui.common.ExpressiveMotion
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.graphicsLayer
@@ -191,5 +192,31 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
             }
         }
     }
+    }
+}
+
+/** Shown while half folded after the tabletop player was swiped away. */
+@Composable
+internal fun TabletopReopenButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    androidx.compose.material3.Surface(
+        onClick = hapticClick(action = onClick),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shadowElevation = 6.dp,
+        modifier = modifier.windowInsetsPadding(WindowInsets.statusBars).padding(top = 8.dp),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            androidx.compose.material3.Icon(
+                androidx.compose.material.icons.Icons.Filled.MusicNote,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Text("Tabletop player", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
