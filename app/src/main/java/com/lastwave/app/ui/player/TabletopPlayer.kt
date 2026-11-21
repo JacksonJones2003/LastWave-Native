@@ -4,6 +4,11 @@ import android.app.Activity
 import android.content.ContextWrapper
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import com.lastwave.app.ui.common.ExpressiveMotion
+import kotlinx.coroutines.launch
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
@@ -84,17 +89,35 @@ internal fun TabletopPlayer(viewModel: PlayerViewModel, hingeTopPx: Float, onClo
     // Its glass controls refract this backdrop, as in the full player, not the app hidden behind it.
     val glass = LocalLiquidGlass.current && isLiquidGlassBackdropSupported()
     val glassSource = rememberLayerBackdrop()
-    // Swiping down anywhere closes it, as the handle on top suggests.
-    val closeDistance = with(LocalDensity.current) { 96.dp.toPx() }
+    // Swiping down anywhere drags it away like the full player: it follows the finger and fades
+    // a little, slides off past the threshold, and springs back short of it.
+    val closeDistance = with(LocalDensity.current) { 88.dp.toPx() }
+    val dragY = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
     Box(
         Modifier
             .fillMaxSize()
+            .graphicsLayer {
+                translationY = dragY.value
+                alpha = (1f - dragY.value / (size.height * 1.5f)).coerceIn(0.72f, 1f)
+            }
             .pointerInput(Unit) {
-                var dragged = 0f
                 detectVerticalDragGestures(
-                    onDragStart = { dragged = 0f },
-                    onDragEnd = { if (dragged > closeDistance) onClose() },
-                ) { _, dy -> dragged += dy }
+                    onDragEnd = {
+                        scope.launch {
+                            if (dragY.value > closeDistance) {
+                                dragY.animateTo(size.height.toFloat(), PlayerSheetCloseSpec)
+                                onClose()
+                            } else {
+                                dragY.animateTo(0f, ExpressiveMotion.spatialSpring())
+                            }
+                        }
+                    },
+                    onDragCancel = { scope.launch { dragY.animateTo(0f, ExpressiveMotion.spatialSpring()) } },
+                ) { change, dy ->
+                    change.consume()
+                    scope.launch { dragY.snapTo((dragY.value + dy).coerceAtLeast(0f)) }
+                }
             },
     ) {
     Box(Modifier.matchParentSize().liquidGlassSource(if (glass) glassSource else null).background(backdrop))
