@@ -2287,8 +2287,9 @@ private fun lyricsAreaBlur(radius: Float, top: Float, bottom: Float, feather: Fl
 }
 
 /**
- * Folded landscape beside the queue: the cover is the whole player. Flick it for the next or
- * previous song, tap it to play or pause; a thin line inside its bottom edge shows progress.
+ * Folded landscape beside the queue: the cover, square, is the whole player. Flick it for the
+ * next or previous song; tap it for transport controls over it, which hide again after a few
+ * seconds. A thin line inside its bottom edge shows progress.
  */
 @Composable
 private fun CompactLandscapeCover(
@@ -2302,59 +2303,105 @@ private fun CompactLandscapeCover(
     val offsetX = remember(track.videoId, track.title) { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptics = LocalHapticFeedback.current
+    var controlsShown by remember { mutableStateOf(false) }
+    // Each tap (or control used) restarts the hide timer.
+    var controlsTouch by remember { mutableIntStateOf(0) }
+    LaunchedEffect(controlsShown, controlsTouch) {
+        if (controlsShown) {
+            delay(3_000L)
+            controlsShown = false
+        }
+    }
     val settle: () -> Unit = { scope.launch { offsetX.animateTo(0f, ExpressiveMotion.spatialSpring()) } }
-    Box(
-        modifier
-            .graphicsLayer {
-                translationX = offsetX.value
-                alpha = 1f - (abs(offsetX.value) / size.width).coerceIn(0f, 0.4f)
-            }
-            .pointerInput(Unit) { detectTapGestures(onTap = { player.togglePlayPause() }) }
-            .pointerInput(track.videoId, track.title) {
-                val threshold = size.width * 0.25f
-                detectHorizontalDragGestures(
-                    onDragEnd = {
-                        val x = offsetX.value
-                        if (abs(x) > threshold) {
-                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                            if (x < 0f) player.next() else player.previous()
-                        }
-                        settle()
-                    },
-                    onDragCancel = settle,
-                ) { change, dx ->
-                    change.consume()
-                    scope.launch { offsetX.snapTo(offsetX.value + dx) }
+    Box(modifier, contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .aspectRatio(1f, matchHeightConstraintsFirst = true)
+                .graphicsLayer {
+                    translationX = offsetX.value
+                    alpha = 1f - (abs(offsetX.value) / size.width).coerceIn(0f, 0.4f)
                 }
-            },
-    ) {
-        PlayerArtwork(track, Modifier.fillMaxSize(), corner = 20.dp, canvas = canvas, isPlaying = isPlaying)
-        // Keeps the white line legible over light covers.
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)))),
-        )
-        // The handle says swipe down to close.
-        Box(
-            Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
-                .size(width = 36.dp, height = 4.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.6f)),
-        )
-        MiniPlayerProgress(
-            progressState,
-            trackColor = Color.White.copy(alpha = 0.3f),
-            barColor = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
-                .height(3.dp),
-        )
+                .pointerInput(Unit) { detectTapGestures(onTap = { controlsShown = !controlsShown }) }
+                .pointerInput(track.videoId, track.title) {
+                    val threshold = size.width * 0.25f
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            val x = offsetX.value
+                            if (abs(x) > threshold) {
+                                haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                                if (x < 0f) player.next() else player.previous()
+                            }
+                            settle()
+                        },
+                        onDragCancel = settle,
+                    ) { change, dx ->
+                        change.consume()
+                        scope.launch { offsetX.snapTo(offsetX.value + dx) }
+                    }
+                },
+        ) {
+            PlayerArtwork(track, Modifier.fillMaxSize(), corner = 20.dp, canvas = canvas, isPlaying = isPlaying)
+            // Keeps the white line legible over light covers.
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)))),
+            )
+            AnimatedVisibility(
+                visible = controlsShown,
+                enter = fadeIn(tween(180)),
+                exit = fadeOut(tween(220)),
+                modifier = Modifier.matchParentSize(),
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color.Black.copy(alpha = 0.45f)),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val use = { action: () -> Unit -> { controlsTouch++; action() } }
+                    IconButton(onClick = hapticClick(action = use(player::previous)), modifier = Modifier.size(56.dp)) {
+                        Icon(Icons.Filled.SkipPrevious, "Previous", tint = Color.White, modifier = Modifier.size(32.dp))
+                    }
+                    Surface(
+                        onClick = hapticClick(action = use(player::togglePlayPause)),
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.18f),
+                        contentColor = Color.White,
+                        modifier = Modifier.size(68.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            AnimatedPlayPauseIcon(isPlaying, Modifier.size(34.dp))
+                        }
+                    }
+                    IconButton(onClick = hapticClick(action = use(player::next)), modifier = Modifier.size(56.dp)) {
+                        Icon(Icons.Filled.SkipNext, "Next", tint = Color.White, modifier = Modifier.size(32.dp))
+                    }
+                }
+            }
+            // The handle says swipe down to close.
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 10.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.6f)),
+            )
+            MiniPlayerProgress(
+                progressState,
+                trackColor = Color.White.copy(alpha = 0.3f),
+                barColor = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 20.dp, vertical = 16.dp)
+                    .height(3.dp),
+            )
+        }
     }
 }
