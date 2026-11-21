@@ -391,6 +391,10 @@ fun PlayerHost(
     // Wide windows only: the open player fills the window instead of docking beside the app.
     var playerFullscreen by rememberSaveable { mutableStateOf(false) }
     val dockedSplit = split?.takeIf { !playerFullscreen }
+    // The open player as two columns, Now Playing and the queue: full screen on a wide window,
+    // and on a landscape phone, where the single column has no height for a queue tab to pay off.
+    val queueBeside = dockedSplit == null && (split != null ||
+        (window.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE && window.screenWidthDp >= 600))
     var currentTab by rememberSaveable { mutableStateOf(FullPlayerTab.NOW_PLAYING) }
     // Lyrics shown inline on Now Playing. Kept beside currentTab, not as a tab,
     // so the regular lyrics tab returns to it on back.
@@ -799,10 +803,10 @@ fun PlayerHost(
                             },
                     ) {
                         WindowPane(
-                            // Full screen on a wide window the player is one of two columns, the queue the other.
+                            // Beside the queue the player lays out for its half.
                             widthDp = when {
                                 dockedSplit != null -> dockedSplit.paneWidthDp
-                                split != null -> window.screenWidthDp / 2
+                                queueBeside -> window.screenWidthDp / 2
                                 else -> window.screenWidthDp
                             },
                             heightDp = window.screenHeightDp,
@@ -830,7 +834,7 @@ fun PlayerHost(
                                     onCollapse = { expanded = false },
                                     paneFullscreen = if (split == null) null else playerFullscreen,
                                     onTogglePane = { playerFullscreen = !playerFullscreen },
-                                    queueBeside = split != null && dockedSplit == null,
+                                    queueBeside = queueBeside,
                                     onOpenArtist = { artist ->
                                         showPage()
                                         viewModel.openArtist(artist)
