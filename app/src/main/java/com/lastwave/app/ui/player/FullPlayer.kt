@@ -78,6 +78,8 @@ import androidx.compose.foundation.rememberScrollState
 import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
@@ -1189,7 +1191,20 @@ internal fun FullPlayer(
                         .padding(start = 8.dp, end = 16.dp),
                 )
             }
-            Column(
+            if (compactLandscape) {
+                CompactLandscapeCover(
+                    track = track,
+                    isPlaying = state.isPlaying,
+                    player = player,
+                    progressState = progressState,
+                    canvas = if (canvasEnabled) activeCanvas else null,
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.5f)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical + WindowInsetsSides.Start))
+                        .padding(16.dp),
+                )
+            } else Column(
                 Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(if (queueBeside) 0.5f else 1f)
@@ -2269,4 +2284,77 @@ private fun lyricsAreaBlur(radius: Float, top: Float, bottom: Float, feather: Fl
     val sharp = android.graphics.RenderEffect.createOffsetEffect(0f, 0f)
     return android.graphics.RenderEffect.createBlendModeEffect(sharp, blurredBand, android.graphics.BlendMode.SRC_OVER)
         .asComposeRenderEffect()
+}
+
+/**
+ * Folded landscape beside the queue: the cover is the whole player. Flick it for the next or
+ * previous song, tap it to play or pause; a thin line inside its bottom edge shows progress.
+ */
+@Composable
+private fun CompactLandscapeCover(
+    track: PlayableTrack,
+    isPlaying: Boolean,
+    player: MusicPlayer,
+    progressState: StateFlow<PlaybackProgressState>,
+    canvas: com.lastwave.app.data.canvas.CanvasArtwork?,
+    modifier: Modifier,
+) {
+    val offsetX = remember(track.videoId, track.title) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    val settle: () -> Unit = { scope.launch { offsetX.animateTo(0f, ExpressiveMotion.spatialSpring()) } }
+    Box(
+        modifier
+            .graphicsLayer {
+                translationX = offsetX.value
+                alpha = 1f - (abs(offsetX.value) / size.width).coerceIn(0f, 0.4f)
+            }
+            .pointerInput(Unit) { detectTapGestures(onTap = { player.togglePlayPause() }) }
+            .pointerInput(track.videoId, track.title) {
+                val threshold = size.width * 0.25f
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        val x = offsetX.value
+                        if (abs(x) > threshold) {
+                            haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            if (x < 0f) player.next() else player.previous()
+                        }
+                        settle()
+                    },
+                    onDragCancel = settle,
+                ) { change, dx ->
+                    change.consume()
+                    scope.launch { offsetX.snapTo(offsetX.value + dx) }
+                }
+            },
+    ) {
+        PlayerArtwork(track, Modifier.fillMaxSize(), corner = 20.dp, canvas = canvas, isPlaying = isPlaying)
+        // Keeps the white line legible over light covers.
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp))
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)))),
+        )
+        // The handle says swipe down to close.
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 10.dp)
+                .size(width = 36.dp, height = 4.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.6f)),
+        )
+        MiniPlayerProgress(
+            progressState,
+            trackColor = Color.White.copy(alpha = 0.3f),
+            barColor = Color.White,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .height(3.dp),
+        )
+    }
 }

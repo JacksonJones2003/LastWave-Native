@@ -501,17 +501,18 @@ private fun QueuePanelContent(
                 },
                 enabled = state.currentIndex >= 0 && state.currentIndex < state.queue.size,
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(if (compactHeader) 32.dp else 44.dp)
+                    .clip(RoundedCornerShape(if (compactHeader) 12.dp else 16.dp))
                     .background(Color.White.copy(alpha = 0.14f)),
             ) {
                 Icon(
                     Icons.Filled.Visibility,
                     "Scroll to current song",
                     tint = Color.White.copy(alpha = 0.90f),
+                    modifier = Modifier.size(if (compactHeader) 18.dp else 24.dp),
                 )
             }
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(if (compactHeader) 4.dp else 8.dp))
             IconButton(
                 onClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
@@ -519,14 +520,15 @@ private fun QueuePanelContent(
                 },
                 enabled = state.queue.size > 1 && !isQueueLocked,
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(if (compactHeader) 32.dp else 44.dp)
+                    .clip(RoundedCornerShape(if (compactHeader) 12.dp else 16.dp))
                     .background(Color.White.copy(alpha = 0.14f)),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Clear queue except playing song",
                     tint = if (state.queue.size > 1 && !isQueueLocked) Color.White.copy(alpha = 0.90f) else Color.White.copy(alpha = 0.35f),
+                    modifier = Modifier.size(if (compactHeader) 18.dp else 24.dp),
                 )
             }
 
