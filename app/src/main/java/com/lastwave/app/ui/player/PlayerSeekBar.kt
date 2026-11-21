@@ -356,7 +356,10 @@ internal fun PlayerProgressSlider(
     wavy: Boolean = (seekbarStyle == SeekbarStyle.WAVY),
     isPlaying: Boolean = false,
     secondaryColor: Color = MaterialTheme.colorScheme.secondary,
+    /** A slim bar (over cover art): under half the height, with a small thumb. */
+    compact: Boolean = false,
 ) {
+    val barHeight = if (compact) 20.dp else 44.dp
     val effectiveStyle = if (seekbarStyle != SeekbarStyle.DEFAULT) seekbarStyle else if (wavy) SeekbarStyle.WAVY else SeekbarStyle.DEFAULT
     val dragged by interactionSource.collectIsDraggedAsState()
     val primary = remember(primaryColor) {
@@ -372,7 +375,7 @@ internal fun PlayerProgressSlider(
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(
-            modifier = modifier.height(44.dp),
+            modifier = modifier.height(barHeight),
             contentAlignment = Alignment.Center,
         ) {
             if (effectiveStyle == SeekbarStyle.WAVEFORM) {
@@ -386,7 +389,7 @@ internal fun PlayerProgressSlider(
                     secondaryColor = secondaryColor,
                     tertiaryColor = tertiaryColor,
                     isTranslucent = true,
-                    trackHeight = 44.dp,
+                    trackHeight = barHeight,
                     enabled = enabled,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -404,14 +407,14 @@ internal fun PlayerProgressSlider(
                 val width = size.width
                 val centerY = size.height / 2f
 
-                val trackHeightPx = 14.dp.toPx()
+                val trackHeightPx = (if (compact) 5.dp else 14.dp).toPx()
                 val cornerRadius = CornerRadius(
                     trackHeightPx / 2f,
                     trackHeightPx / 2f,
                 )
-                val thumbWidthPx = 5.dp.toPx()
-                val thumbHeightPx = 38.dp.toPx()
-                val thumbClearancePx = 9.dp.toPx()
+                val thumbWidthPx = (if (compact) 3.dp else 5.dp).toPx()
+                val thumbHeightPx = (if (compact) 14.dp else 38.dp).toPx()
+                val thumbClearancePx = (if (compact) 4.dp else 9.dp).toPx()
 
                 val rawThumbCenterX = fraction * width
                 val thumbCenterX = if (width > thumbWidthPx) {

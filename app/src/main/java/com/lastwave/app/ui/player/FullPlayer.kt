@@ -1178,40 +1178,6 @@ internal fun FullPlayer(
             val showError = state.error != null && !lyricsFullscreen
             val bottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
             val tabBottomInset = if (showError) 0.dp else bottomInset
-            // The lyrics view of the lyrics tab, also shown beside the player in place of the queue.
-            // wordsOnly: no playback controls over the lines (beside the player, which has its own).
-            val lyricsPanel: @Composable (Modifier, Boolean, Boolean, () -> Unit) -> Unit = { modifier, wordsOnly, isFullscreen, onToggleFullscreen ->
-                ModernLyricsPanel(
-                    state = state,
-                    player = player,
-                    lyricsState = lyricsState,
-                    lyricsProviderStatuses = lyricsProviderStatuses,
-                    onProbeLyricsProviders = onProbeLyricsProviders,
-                    progressState = progressState,
-                    seekbarStyle = seekbarStyle,
-                    wavySeekbarEnabled = wavySeekbarEnabled,
-                    lyricsStyle = lyricsStyle,
-                    onLyricsStyleChange = onSetLyricsStyle ?: {},
-                    lyricsOffsetMs = lyricsOffsetMs,
-                    lyricsFontScale = lyricsFontScale,
-                    onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
-                    controlsAutoHideSeconds = lyricsButtonsAutoHideSeconds,
-                    controlsVisibleState = if (wordsOnly) false else lyricsControlsVisible,
-                    onControlsVisibleChange = { lyricsControlsVisible = it },
-                    translationLanguage = translationLanguage,
-                    onRetry = onRetryLyrics,
-                    onSelectLyricsProvider = onSelectLyricsProvider,
-                    onTryAnotherLyricsSource = onTryAnotherLyricsSource,
-                    onToggleFullscreen = onToggleFullscreen,
-                    isFullscreen = isFullscreen,
-                    onOpenLyricsOffset = { showLyricsOffsetDialog = true },
-                    primaryColor = ambientColor,
-                    secondaryColor = ambientCompanion,
-                    tertiaryColor = ambientDeep,
-                    resolvedArtworkUrl = resolvedAmbientUrl,
-                    modifier = modifier,
-                )
-            }
             if (queueBeside) {
                 val columnModifier = Modifier
                     .align(Alignment.TopEnd)
@@ -1247,7 +1213,19 @@ internal fun FullPlayer(
                                 iconSize = 20.dp,
                             )
                         }
-                        lyricsPanel(Modifier.weight(1f).fillMaxWidth(), true, false) { lyricsBeside = false }
+                        PlayerInlineLyrics(
+                            state = state,
+                            player = player,
+                            lyricsState = lyricsState,
+                            progressState = progressState,
+                            lyricsOffsetMs = lyricsOffsetMs,
+                            fontScale = playerLyricsUi.fontScale,
+                            subLines = playerLyricsUi.subLines,
+                            displayMode = playerLyricsUi.displayMode,
+                            onRetry = onRetryLyrics,
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            accentColor = ambientColor,
+                        )
                     }
                 } else {
                     // The queue as the end column, over the same artwork backdrop; it reorders by its handles.
@@ -1546,8 +1524,45 @@ internal fun FullPlayer(
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
-                                lyricsPanel(
-                                    if (landscapeSplit) {
+                                ModernLyricsPanel(
+                                    state = state,
+                                    player = player,
+                                    lyricsState = lyricsState,
+                                    lyricsProviderStatuses = lyricsProviderStatuses,
+                                    onProbeLyricsProviders = onProbeLyricsProviders,
+                                    progressState = progressState,
+                                    seekbarStyle = seekbarStyle,
+                                    wavySeekbarEnabled = wavySeekbarEnabled,
+                                    lyricsStyle = lyricsStyle,
+                                    onLyricsStyleChange = onSetLyricsStyle ?: {},
+                                    lyricsOffsetMs = lyricsOffsetMs,
+                                    lyricsFontScale = lyricsFontScale,
+                                    onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
+                                    controlsAutoHideSeconds = lyricsButtonsAutoHideSeconds,
+                                    controlsVisibleState = lyricsControlsVisible,
+                                    onControlsVisibleChange = { lyricsControlsVisible = it },
+                                    translationLanguage = translationLanguage,
+                                    onRetry = onRetryLyrics,
+                                    onSelectLyricsProvider = onSelectLyricsProvider,
+                                    onTryAnotherLyricsSource = onTryAnotherLyricsSource,
+                                    // Full Screen cycles: Player Lyrics -> lyrics -> full screen -> back
+                                    // to Player Lyrics. The two-column landscape has no Player Lyrics,
+                                    // so it lands on its Now Playing.
+                                    onToggleFullscreen = {
+                                        if (lyricsFullscreen) {
+                                            if (!isTabletLandscape) onPlayerLyricsChange(true)
+                                            onTabChange(FullPlayerTab.NOW_PLAYING)
+                                        } else {
+                                            lyricsFullscreen = true
+                                        }
+                                    },
+                                    isFullscreen = lyricsFullscreen,
+                                    onOpenLyricsOffset = { showLyricsOffsetDialog = true },
+                                    primaryColor = ambientColor,
+                                    secondaryColor = ambientCompanion,
+                                    tertiaryColor = ambientDeep,
+                                    resolvedArtworkUrl = resolvedAmbientUrl,
+                                    modifier = if (landscapeSplit) {
                                         Modifier
                                             .weight(1.15f)
                                             .fillMaxHeight()
@@ -1555,19 +1570,6 @@ internal fun FullPlayer(
                                         Modifier
                                             .fillMaxSize()
                                             .adaptiveContentWidth(maxWidth = if (isTabletLandscape) 960.dp else 720.dp)
-                                    },
-                                    false,
-                                    lyricsFullscreen,
-                                    // Full Screen cycles: Player Lyrics -> lyrics -> full screen -> back
-                                    // to Player Lyrics. The two-column landscape has no Player Lyrics,
-                                    // so it lands on its Now Playing.
-                                    {
-                                        if (lyricsFullscreen) {
-                                            if (!isTabletLandscape) onPlayerLyricsChange(true)
-                                            onTabChange(FullPlayerTab.NOW_PLAYING)
-                                        } else {
-                                            lyricsFullscreen = true
-                                        }
                                     },
                                 )
                                 }
@@ -2490,6 +2492,7 @@ private fun CoverProgress(
         seekbarStyle = seekbarStyle,
         wavy = wavySeekbarEnabled,
         isPlaying = isPlaying,
+        compact = true,
         modifier = modifier,
     )
 }
