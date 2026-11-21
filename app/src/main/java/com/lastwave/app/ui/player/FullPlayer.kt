@@ -1179,7 +1179,8 @@ internal fun FullPlayer(
             val bottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
             val tabBottomInset = if (showError) 0.dp else bottomInset
             // The lyrics view of the lyrics tab, also shown beside the player in place of the queue.
-            val lyricsPanel: @Composable (Modifier, Boolean, () -> Unit) -> Unit = { modifier, isFullscreen, onToggleFullscreen ->
+            // wordsOnly: no playback controls over the lines (beside the player, which has its own).
+            val lyricsPanel: @Composable (Modifier, Boolean, Boolean, () -> Unit) -> Unit = { modifier, wordsOnly, isFullscreen, onToggleFullscreen ->
                 ModernLyricsPanel(
                     state = state,
                     player = player,
@@ -1195,7 +1196,7 @@ internal fun FullPlayer(
                     lyricsFontScale = lyricsFontScale,
                     onLyricsFontScaleChange = onSetLyricsFontScale ?: {},
                     controlsAutoHideSeconds = lyricsButtonsAutoHideSeconds,
-                    controlsVisibleState = lyricsControlsVisible,
+                    controlsVisibleState = if (wordsOnly) false else lyricsControlsVisible,
                     onControlsVisibleChange = { lyricsControlsVisible = it },
                     translationLanguage = translationLanguage,
                     onRetry = onRetryLyrics,
@@ -1246,7 +1247,7 @@ internal fun FullPlayer(
                                 iconSize = 20.dp,
                             )
                         }
-                        lyricsPanel(Modifier.weight(1f).fillMaxWidth(), false) { lyricsBeside = false }
+                        lyricsPanel(Modifier.weight(1f).fillMaxWidth(), true, false) { lyricsBeside = false }
                     }
                 } else {
                     // The queue as the end column, over the same artwork backdrop; it reorders by its handles.
@@ -1555,6 +1556,7 @@ internal fun FullPlayer(
                                             .fillMaxSize()
                                             .adaptiveContentWidth(maxWidth = if (isTabletLandscape) 960.dp else 720.dp)
                                     },
+                                    false,
                                     lyricsFullscreen,
                                     // Full Screen cycles: Player Lyrics -> lyrics -> full screen -> back
                                     // to Player Lyrics. The two-column landscape has no Player Lyrics,
